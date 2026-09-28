@@ -259,6 +259,7 @@ export interface StudentReplacementRow {
   created_at: string;
   reviewed_at: string | null;
   schools?: { name: string | null } | null;
+  registrations?: { edition_year: number | null } | null;
 }
 
 /** Return shape of the requestInfoChange server action (used by its dialog). */

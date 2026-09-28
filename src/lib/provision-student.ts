@@ -15,7 +15,14 @@ import { matchRoster, type RosterRow } from "@/lib/roster-match";
 
 export type AdminClient = NonNullable<ReturnType<typeof createAdminClient>>;
 
-export type ProvisionResult = { code?: string; error?: string; created?: boolean };
+export type ProvisionResult = {
+  code?: string;
+  error?: string;
+  created?: boolean;
+  /** The row the name resolved to. The replacement flow hands this student the
+   *  outgoing rep's exam identity, which is keyed on the row and not the name. */
+  studentId?: string;
+};
 
 export function makeAccessCode() {
   return randomBytes(5)
@@ -88,7 +95,7 @@ export async function provisionStudent(
       console.error("provisionStudent: re-tag failed:", tagErr.message);
       return { error: `Could not save student: ${tagErr.message}` };
     }
-    return { code: existing.access_code as string, created: false };
+    return { code: existing.access_code as string, created: false, studentId: existing.id };
   }
 
   const code = makeAccessCode();
@@ -124,18 +131,22 @@ export async function provisionStudent(
       console.error("provisionStudent: adopt failed:", adoptErr.message);
       return { error: `Could not save student: ${adoptErr.message}` };
     }
-    return { code, created: true };
+    return { code, created: true, studentId: existing.id };
   }
 
-  const { error: sErr } = await admin.from("students").insert({
-    school_id: schoolId,
-    name: trimmed,
-    level: level || null,
-    access_code: code,
-    auth_email: authEmail,
-    auth_user_id: created.user.id,
-    edition_year: editionYear,
-  });
+  const { data: inserted, error: sErr } = await admin
+    .from("students")
+    .insert({
+      school_id: schoolId,
+      name: trimmed,
+      level: level || null,
+      access_code: code,
+      auth_email: authEmail,
+      auth_user_id: created.user.id,
+      edition_year: editionYear,
+    })
+    .select("id")
+    .maybeSingle();
   if (sErr) {
     // The row never landed, so clean up the auth user on EVERY failure, not
     // just the race below — students_roster_cap (20260913090400) rejects a
@@ -156,14 +167,14 @@ export async function provisionStudent(
           .from("students")
           .update({ name: trimmed, edition_year: editionYear, level: level || null })
           .eq("id", winner.id);
-        return { code: winner.access_code as string, created: false };
+        return { code: winner.access_code as string, created: false, studentId: winner.id };
       }
     }
     console.error("provisionStudent: students insert failed:", sErr.message);
     return { error: `Could not save student: ${sErr.message}` };
   }
 
-  return { code, created: true };
+  return { code, created: true, studentId: inserted?.id as string | undefined };
 }
 
 // Retire a student when they're replaced on a registration. Bans the auth user
