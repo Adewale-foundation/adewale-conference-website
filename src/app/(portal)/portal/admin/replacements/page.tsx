@@ -67,65 +67,69 @@ export default async function AdminReplacements() {
             </p>
           ) : (
             <div className="space-y-3">
-              {pending.map((r) => (
-                <Card key={r.id} className="p-4 space-y-3">
-                  <div>
-                    <span className="font-medium text-foreground">
-                      {r.schools?.name ?? "Unknown school"}
-                    </span>
-                    <p className="text-sm text-foreground mt-1">
-                      <span className="text-muted-foreground line-through">
-                        {r.old_name}
-                        {r.old_level ? ` · ${r.old_level}` : ""}
+              {pending.map((r) => {
+                return (
+                  <Card key={r.id} className="p-4 space-y-3">
+                    <div>
+                      <span className="font-medium text-foreground">
+                        {r.schools?.name ?? "Unknown school"}
                       </span>
-                      {"  →  "}
-                      <span className="font-medium">
-                        {r.new_name}
-                        {r.new_level ? ` · ${r.new_level}` : ""}
-                      </span>
-                    </p>
-                    {r.reason ? (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Reason: {r.reason}
+                      <p className="text-sm text-foreground mt-1">
+                        <span className="text-muted-foreground line-through">
+                          {r.old_name}
+                          {r.old_level ? ` · ${r.old_level}` : ""}
+                        </span>
+                        {"  →  "}
+                        <span className="font-medium">
+                          {r.new_name}
+                          {r.new_level ? ` · ${r.new_level}` : ""}
+                        </span>
                       </p>
-                    ) : null}
-                  </div>
-                  {canManage ? (
-                    <div className="flex flex-wrap gap-2">
-                      <ActionForm action={approveReplacement.bind(null, r.id)}>
-                        <ConfirmSubmitButton
-                          size="sm"
-                          title="Approve this replacement?"
-                          description={`${r.old_name}'s access code stops working and ${r.new_name} gets one. The registration is updated to match.`}
-                          confirmLabel="Yes, approve"
-                        >
-                          Approve
-                        </ConfirmSubmitButton>
-                      </ActionForm>
-                      <ActionForm
-                        action={declineReplacement.bind(null, r.id)}
-                        className="flex items-center gap-2"
-                      >
-                        <input
-                          name="note"
-                          placeholder="Reason (optional)"
-                          className="rounded-md border border-foreground/15 bg-card px-3 py-2 text-sm outline-none focus:border-primary"
-                        />
-                        <ConfirmSubmitButton
-                          size="sm"
-                          variant="outline"
-                          destructive
-                          title="Decline this replacement?"
-                          description={`No student changes. ${r.new_name} will not replace ${r.old_name}.`}
-                          confirmLabel="Yes, decline"
-                        >
-                          Decline
-                        </ConfirmSubmitButton>
-                      </ActionForm>
+                      {r.reason ? (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Reason: {r.reason}
+                        </p>
+                      ) : null}
                     </div>
-                  ) : null}
-                </Card>
-              ))}
+                    {canManage ? (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          <ActionForm action={approveReplacement.bind(null, r.id)}>
+                            <ConfirmSubmitButton
+                              size="sm"
+                              title="Approve this replacement?"
+                              description={`${r.old_name}'s access code stops working and ${r.new_name} gets one. The registration is updated to match.`}
+                              confirmLabel="Yes, approve"
+                            >
+                              Approve
+                            </ConfirmSubmitButton>
+                          </ActionForm>
+                          <ActionForm
+                            action={declineReplacement.bind(null, r.id)}
+                            className="flex items-center gap-2"
+                          >
+                            <input
+                              name="note"
+                              placeholder="Reason (optional)"
+                              className="rounded-md border border-foreground/15 bg-card px-3 py-2 text-sm outline-none focus:border-primary"
+                            />
+                            <ConfirmSubmitButton
+                              size="sm"
+                              variant="outline"
+                              destructive
+                              title="Decline this replacement?"
+                              description={`No student changes. ${r.new_name} will not replace ${r.old_name}.`}
+                              confirmLabel="Yes, decline"
+                            >
+                              Decline
+                            </ConfirmSubmitButton>
+                          </ActionForm>
+                        </div>
+                      </>
+                    ) : null}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
