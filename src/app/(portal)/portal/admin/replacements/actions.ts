@@ -17,10 +17,14 @@ import type { Rep, StudentReplacementRow } from "@/supabase/types";
 // incoming one (who may be a rep this edition already retired), and update the
 // registration. Service-role work, so admin is verified explicitly
 // (createAdminClient bypasses RLS).
+//
+// `carry_exam_id` is the reviewer answering "the incoming rep is the one who
+// sat, on the outgoing rep's number". Never inferred — the same request shape
+// covers a rep who sat and then left. ADR-0013.
 export async function approveReplacement(
   id: string,
   _prev: ActionResult | null,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<ActionResult> {
   if (!(await canManageModule("registrations"))) {
     return { ok: false, error: "You have read-only access to registrations." };
@@ -30,6 +34,7 @@ export async function approveReplacement(
   if (!admin) {
     return { ok: false, error: "Student access isn't configured on the server." };
   }
+  const carryExamId = String(formData.get("carry_exam_id") ?? "").trim() || null;
 
   const { data: rRow, error: rErr } = await admin
     .from("student_replacements")
@@ -76,6 +81,15 @@ export async function approveReplacement(
       ((found ?? []) as { id: string; name: string }[]).find(
         (s) => personNameKey(s.name) === key,
       )?.id ?? null;
+    // Pin it to the request before retiring them. The fallback above only sees
+    // ACTIVE students, so a retry after a later step fails would no longer find
+    // the row we are about to deactivate — and the exam carry-over needs it.
+    if (oldStudentId) {
+      await admin
+        .from("student_replacements")
+        .update({ old_student_id: oldStudentId })
+        .eq("id", id);
+    }
   }
   if (oldStudentId) {
     const res = await deactivateStudent(admin, oldStudentId);
@@ -141,7 +155,38 @@ export async function approveReplacement(
     };
   }
 
-  // 5. Mark approved.
+  // 5. Carry the exam identity over, if the reviewer said the incoming rep is
+  //    the one who sat. Every step above is idempotent on a re-approve, so a
+  //    failure here leaves the request pending to be retried rather than
+  //    approved with the score stranded on the retired row.
+  let carriedExamNo: string | null = null;
+  if (carryExamId) {
+    if (!oldStudentId || !provision.studentId) {
+      return {
+        ok: false,
+        error: `The swap is applied, but there is no ${!oldStudentId ? "outgoing" : "incoming"} student row to move the exam record between.`,
+      };
+    }
+    // The user's own client: transfer_exam_identity is SECURITY DEFINER and
+    // guards on has_module_manage, which reads auth.uid() — the service-role
+    // client has none.
+    const supabase = await createClient();
+    const { data: moved, error: moveErr } = await supabase.rpc("transfer_exam_identity", {
+      p_exam_id: carryExamId,
+      p_from_student: oldStudentId,
+      p_to_student: provision.studentId,
+    });
+    if (moveErr) {
+      console.error("approveReplacement: exam transfer failed:", moveErr.message);
+      return {
+        ok: false,
+        error: `${r.new_name} now holds the slot, but the exam number and score stayed with ${r.old_name}: ${moveErr.message}. The request is still pending — approve again to retry.`,
+      };
+    }
+    carriedExamNo = (moved as { exam_no: string | null } | null)?.exam_no ?? null;
+  }
+
+  // 6. Mark approved.
   const { error: markErr } = await admin
     .from("student_replacements")
     .update({
@@ -164,7 +209,11 @@ export async function approveReplacement(
     await admin.from("notifications").insert({
       profile_id: r.requested_by,
       title: "Student replacement approved",
-      body: `${r.new_name} now replaces ${r.old_name}. Their access code is on the Students page.`,
+      body: `${r.new_name} now replaces ${r.old_name}. Their access code is on the Students page.${
+        carriedExamNo
+          ? ` Exam number ${carriedExamNo} and its result now sit with ${r.new_name}.`
+          : ""
+      }`,
       link: "/portal/school/students",
     });
   }
@@ -172,11 +221,15 @@ export async function approveReplacement(
   revalidatePath("/portal/admin/replacements");
   revalidatePath("/portal/school/students");
   revalidatePath("/portal/school");
+  if (carriedExamNo) revalidatePath("/portal/school/results");
+  const code = provision.created
+    ? `${r.new_name} replaces ${r.old_name}, with a new access code.`
+    : `${r.new_name} replaces ${r.old_name}, and keeps the access code they already had.`;
   return {
     ok: true,
-    message: provision.created
-      ? `${r.new_name} replaces ${r.old_name}, with a new access code.`
-      : `${r.new_name} replaces ${r.old_name}, and keeps the access code they already had.`,
+    message: carriedExamNo
+      ? `${code} Exam number ${carriedExamNo} and its result moved across.`
+      : code,
   };
 }
 
