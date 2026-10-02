@@ -3,6 +3,7 @@ import SchoolSidebar from "@/components/portal/school-sidebar";
 import { createClient } from "@/supabase/server";
 import { getSessionUser } from "@/supabase/auth";
 import { isSupabaseConfigured } from "@/supabase/env";
+import { isCampEligible } from "@/lib/camp";
 
 export default async function SchoolLayout({
   children,
@@ -20,7 +21,7 @@ export default async function SchoolLayout({
   const [{ data: reg }, { data: mem }] = await Promise.all([
     supabase
       .from("registrations")
-      .select("schools(name)")
+      .select("id, status, schools(name), registration_stage_results(stage, outcome)")
       .order("edition_year", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -35,6 +36,21 @@ export default async function SchoolLayout({
     (reg?.schools as unknown as { name: string | null } | null)?.name ??
     (mem?.schools as unknown as { name: string | null } | null)?.name ??
     null;
+  // A school an admin added by hand has no qualifying result, only the flag.
+  const { data: manual, error: manualError } = reg
+    ? await supabase
+        .from("camp_confirmations")
+        .select("id")
+        .eq("registration_id", reg.id)
+        .eq("invited_manually", true)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (manualError) console.error("camp invite", manualError.message);
+  const showCamp = isCampEligible(
+    (reg?.status as string | undefined) ?? null,
+    (reg?.registration_stage_results as { stage: string; outcome: string | null }[] | undefined) ?? null,
+    Boolean(manual),
+  );
 
   return (
     <div className="px-4 md:px-6 py-6 md:py-8">
@@ -47,7 +63,7 @@ export default async function SchoolLayout({
         </p>
         <div className="flex flex-col md:flex-row md:gap-6">
           <aside className="md:w-56 shrink-0">
-            <SchoolSidebar />
+            <SchoolSidebar showCamp={showCamp} />
           </aside>
           <div className="flex-1 min-w-0 space-y-6 pb-24 md:pb-0">{children}</div>
         </div>

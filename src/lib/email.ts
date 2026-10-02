@@ -558,6 +558,58 @@ export function buildDeclinedEmail(data: {
   return { to, subject, html };
 }
 
+/** Receipt for a school's ASC Camp response — attending or not. */
+export function buildCampConfirmationEmail(data: {
+  email: string;
+  name?: string | null;
+  schoolFullName: string;
+  campTitle: string;
+  attending: boolean;
+  venue?: string | null;
+  arrival?: string | null;
+  departure?: string | null;
+  deadline?: string | null;
+  educators?: { name: string; phone: string | null }[];
+  whatsappUrl?: string | null;
+}) {
+  const pStyle = "margin:0 0 18px;font-size:15px;line-height:24px;color:#4A4E5C;";
+  const row = (label: string, value?: string | null) =>
+    value
+      ? `<p class="body-font" style="margin:0 0 6px;font-size:14px;line-height:22px;color:#4A4E5C;"><strong style="color:#0A0F1E;">${label}:</strong> ${escapeHtml(value)}</p>`
+      : "";
+  const detailsBlock = data.attending
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#FBF3E2;border:1px solid #E8A020;"><tr><td style="padding:18px;">
+<p class="body-font" style="margin:0 0 10px;font-size:11px;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;color:#8a5e0e;">Your place is secured</p>
+${row("Venue", data.venue)}${row("Arrival", data.arrival)}${row("Departure", data.departure)}${row(
+  (data.educators ?? []).length > 1 ? "Accompanying educators" : "Accompanying educator",
+  (data.educators ?? []).map((e) => [e.name, e.phone].filter(Boolean).join(" · ")).join("; "),
+)}
+</td></tr></table>`
+    : `<p class="body-font" style="${pStyle}">Thank you for letting us know. Your school's place may now be offered to another school, so please reply to this email straight away if your plans change.</p>`;
+  const nextBlock = data.attending
+    ? [
+        data.whatsappUrl
+          ? `<p class="body-font" style="margin:22px 0 18px;font-size:15px;line-height:24px;color:#4A4E5C;"><strong style="color:#0A0F1E;">Join the camp WhatsApp group</strong> for updates from the Planning Committee: <a href="${escapeHtml(data.whatsappUrl)}" style="color:#8a5e0e;">${escapeHtml(data.whatsappUrl)}</a></p>`
+          : "",
+        `<p class="body-font" style="${pStyle}">Please arrive on time &mdash; accreditation and room allocation begin on arrival. Each student needs their school uniform, nightwear, toiletries, bedding, a bucket, a water bottle, a torch and any labelled medication. Students may not use phones during competition rounds. The full camp program is in your portal.</p>`,
+      ].join("")
+    : "";
+  const html = render("camp-confirmation", data.attending ? "Camp place confirmed" : "Camp response received", {
+    intro: data.attending
+      ? `${data.schoolFullName} is confirmed for ${data.campTitle}. We look forward to welcoming your team.`
+      : `We've recorded that ${data.schoolFullName} cannot attend ${data.campTitle}.`,
+    detailsBlock,
+    nextBlock,
+    deadline: data.deadline || "the confirmation deadline",
+    portalUrl: getPortalLoginUrl("/portal/school/camp"),
+  });
+  const subject = data.attending
+    ? `Camp place confirmed — ${data.schoolFullName}`
+    : `Camp response received — ${data.schoolFullName}`;
+  const to: EmailRecipient[] = [{ email: data.email, ...(data.name ? { name: data.name } : {}) }];
+  return { to, subject, html };
+}
+
 /**
  * A free-form announcement from the admin console.
  *

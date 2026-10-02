@@ -1,7 +1,9 @@
-import { createClient } from "@/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAcceptedEmail, buildDeclinedEmail, sendEmailSafely } from "@/lib/email";
 
-type ServerClient = Awaited<ReturnType<typeof createClient>>;
+// Any client: a school-initiated fan-out passes the service role, since only
+// admins may insert notifications under RLS.
+type ServerClient = SupabaseClient;
 
 export interface SchoolPerson {
   email: string | null;
