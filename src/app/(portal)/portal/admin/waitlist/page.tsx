@@ -17,6 +17,8 @@ import {
 } from "@/components/portal/list-controls";
 import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import CopyLink from "@/components/portal/copy-link";
+import { SchoolLink } from "@/components/portal/school-link";
+import { REGISTRATION_BASE, registrationHref } from "@/lib/admin-links";
 import { waitlistInviteUrl } from "@/lib/email";
 import { INVITE_TOKEN_DAY_OPTIONS, INVITE_TOKEN_DAYS } from "@/lib/waitlist-invite";
 import { pageMetadata } from "@/lib/seo";
@@ -253,7 +255,13 @@ export default async function AdminWaitlist({
                 return (
                 <div key={entry.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                   <div className="min-w-0">
-                    <span className="font-medium text-foreground">{entry.school_name}</span>
+                    <SchoolLink
+                      registrationId={entry.registration_id}
+                      from="/portal/admin/waitlist"
+                      className="font-medium text-foreground"
+                    >
+                      {entry.school_name}
+                    </SchoolLink>
                     <p className="text-sm text-muted-foreground">
                       {[entry.lga, entry.category].filter(Boolean).join(" · ") || "—"}
                     </p>
@@ -273,8 +281,8 @@ export default async function AdminWaitlist({
                       <a
                         href={
                           entry.registration_id
-                            ? `/portal/admin/registrations/${entry.registration_id}`
-                            : "/portal/admin/registrations"
+                            ? registrationHref(entry.registration_id, "/portal/admin/waitlist")
+                            : REGISTRATION_BASE
                         }
                         className="inline-block px-2 py-1 text-[10px] font-bold uppercase tracking-[0.15em] bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
                       >

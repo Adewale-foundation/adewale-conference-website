@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { REGISTRATION_BASE, registrationHref } from "@/lib/admin-links";
 import { Eye, FileSpreadsheet, Mail, Sheet, Users } from "lucide-react";
 import EmptyState from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -168,6 +169,12 @@ export default async function AdminRegistrations({
     gender: genderFilter,
     contacts: incompleteContacts ? "incomplete" : undefined,
   };
+  const listQuery = new URLSearchParams(
+    Object.entries({ ...listParams, page: page > 1 ? String(page) : undefined }).filter(
+      (e): e is [string, string] => typeof e[1] === "string" && e[1] !== "",
+    ),
+  ).toString();
+  const listFrom = listQuery ? `${REGISTRATION_BASE}?${listQuery}` : REGISTRATION_BASE;
   const hasActiveFilter = Boolean(
     needle || status || activationFilter || genderFilter || incompleteContacts,
   );
@@ -385,7 +392,7 @@ export default async function AdminRegistrations({
                         ) : null}
                         <div className="min-w-0">
                           <Link
-                            href={`/portal/admin/registrations/${r.id}`}
+                            href={registrationHref(r.id, listFrom)}
                             className="font-bebas text-2xl leading-none text-foreground hover:text-primary"
                           >
                             {r.schools?.name ?? "Unassigned school"}
@@ -435,7 +442,7 @@ export default async function AdminRegistrations({
                       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                         <StatusBadge status={r.status} />
                         <Button asChild size="sm" variant="outline">
-                          <Link href={`/portal/admin/registrations/${r.id}`}>
+                          <Link href={registrationHref(r.id, listFrom)}>
                             <Eye className="size-4" />
                             Details
                           </Link>

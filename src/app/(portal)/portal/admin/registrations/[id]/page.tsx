@@ -17,6 +17,7 @@ import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
 import { canManageModule, requireModuleView } from "@/supabase/auth";
+import { safeBack } from "@/lib/admin-links";
 import type { RegistrationStatus, Rep } from "@/supabase/types";
 import { setRegistrationStatus } from "../../actions";
 
@@ -64,12 +65,15 @@ function activationText(member: MemberRow | undefined, fallbackActive: boolean) 
 
 export default async function RegistrationDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   await requireModuleView("registrations");
   const canManage = await canManageModule("registrations");
   const { id } = await params;
+  const back = safeBack((await searchParams).from);
   const supabase = await createClient();
 
   const { data } = await supabase
@@ -115,9 +119,9 @@ export default async function RegistrationDetailPage({
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Button asChild size="sm" variant="outline">
-              <Link href="/portal/admin/registrations">
+              <Link href={back.href}>
                 <ArrowLeft className="size-4" />
-                Registrations
+                {back.label}
               </Link>
             </Button>
             {!canManage ? <ReadOnlyBadge /> : null}
