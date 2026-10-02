@@ -6,13 +6,16 @@
 // listed but locked, with the file withheld SERVER-side (the URL never reaches
 // their browser).
 
-export type ResourceAccess = "public" | "accepted" | "qualified" | "finalist";
+export type ResourceAccess = "public" | "accepted" | "qualified" | "finalist" | "camp";
 
+// "camp" is off the ladder: it needs a confirmed camp place, not just progress.
+// Its rank is the qualified floor so callers that only compare ranks still lock it.
 const ACCESS_RANK: Record<ResourceAccess, number> = {
   public: 0,
   accepted: 1,
   qualified: 2,
   finalist: 3,
+  camp: 2,
 };
 
 /** Minimum tier a resource demands (unknown/missing → public). */
@@ -51,7 +54,12 @@ export function tierRank(
 }
 
 /** Whether a school at the given unlocked tier can open a resource. */
-export function canAccess(access: string | null | undefined, tier: number) {
+export function canAccess(
+  access: string | null | undefined,
+  tier: number,
+  campAttending = false,
+) {
+  if (access === "camp" && !campAttending) return false;
   return accessRank(access) <= tier;
 }
 
@@ -59,12 +67,15 @@ export const ACCESS_LABEL: Record<Exclude<ResourceAccess, "public">, string> = {
   accepted: "Accepted schools",
   qualified: "Qualified schools",
   finalist: "Finalists",
+  camp: "Camp attendees",
 };
 
 export function lockHint(access?: string | null): string {
   switch (access) {
     case "finalist":
       return "Unlocks for finalist schools";
+    case "camp":
+      return "Unlocks once your school confirms its camp place";
     case "qualified":
       return "Unlocks when your school qualifies past zonals";
     default:

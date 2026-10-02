@@ -5,6 +5,8 @@ import { SubmitButton } from "@/components/portal/submit-button";
 import { EditionStages, nextStage } from "@/components/portal/edition-stages";
 import { resubmitRegistration } from "./actions";
 import { StageResults, type StageResultRow } from "@/components/portal/stage-results";
+import CampCard from "@/components/portal/camp-card";
+import { loadMyCamp } from "@/lib/camp-data";
 import {
   PAPER_BASE,
   paperLinksForStudents,
@@ -109,6 +111,10 @@ export default async function SchoolOverview() {
         .eq("registration_id", entry.id)
     : { data: [] as StageResult[] };
   const stageResults = (stageData ?? []) as StageResult[];
+  const { camp, error: campError } = entry
+    ? await loadMyCamp(supabase, entry.id)
+    : { camp: null, error: null };
+  if (campError) console.error("camp details", campError);
   const entryEdition = entry
     ? editions.find((e) => e.year === entry.edition_year) ?? latest
     : null;
@@ -182,6 +188,8 @@ export default async function SchoolOverview() {
 
   return (
     <>
+      {camp ? <CampCard camp={camp} /> : null}
+
       {/* Competition-entry status — bold and unmissable. Review happens at close
           of registration; portal/prep access is never gated by it. */}
       {entry ? (

@@ -93,7 +93,6 @@ export default async function AdminAnnouncements() {
               <form
                 action={createAnnouncementDraft}
                 className="space-y-4"
-                encType="multipart/form-data"
               >
                 <label className="space-y-1 block">
                   <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">

@@ -53,10 +53,12 @@ export default async function StudentResources({
   if (sp.level) query = query.eq("level", sp.level);
   if (sp.type) query = query.eq("type", sp.type);
 
-  const [{ data }, { data: schoolData }] = await Promise.all([
+  const [{ data }, { data: schoolData }, { data: campAttending, error: campError }] = await Promise.all([
     query,
     supabase.rpc("get_my_school"),
+    supabase.rpc("my_camp_attending"),
   ]);
+  if (campError) console.error("camp access", campError.message);
   // Unlock tier is derived from competition progress (stage advancement), not a
   // status flag — see tierRank.
   const registration =
@@ -69,7 +71,7 @@ export default async function StudentResources({
   const tier = tierRank(registration?.status ?? null, registration?.stage_results);
 
   const resources = ((data ?? []) as unknown as ResourceRow[]).map(mapResource);
-  const withLock = (r: (typeof resources)[number]) => ({ r, locked: !canAccess(r.access, tier) });
+  const withLock = (r: (typeof resources)[number]) => ({ r, locked: !canAccess(r.access, tier, campAttending === true) });
   // Grouped by how you get them — downloadable files vs. links — not by type.
   // The type (guidelines, past questions, study guide…) shows on each card.
   const downloads = resources

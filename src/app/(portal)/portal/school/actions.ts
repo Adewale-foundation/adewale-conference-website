@@ -7,7 +7,17 @@ import { getSessionUser } from "@/supabase/auth";
 import { createAdminClient } from "@/supabase/admin";
 import { provisionStudent, type ProvisionResult } from "@/lib/provision-student";
 import { personNameProblem } from "@/lib/person-identity";
-import type { InfoChangeResult, Rep, ReplacementResult } from "@/supabase/types";
+import { getSchoolAudience, notifySchool } from "@/lib/school-notify";
+import { buildCampConfirmationEmail, sendEmailSafely } from "@/lib/email";
+import { educatorKey, formatCampDate, validateCampResponse } from "@/lib/camp";
+import { loadEducatorsOnRecord } from "@/lib/camp-data";
+import type { ActionResult } from "@/app/(portal)/portal/admin/paper-exams/actions";
+import type {
+  CampSettings,
+  InfoChangeResult,
+  Rep,
+  ReplacementResult,
+} from "@/supabase/types";
 
 // Provision a student for the coordinator's school: a Supabase auth user with a
 // synthetic email + the access code as password (so they log in with just the
@@ -321,4 +331,110 @@ export async function claimRegistration(
   revalidatePath("/portal/school");
   revalidatePath("/portal");
   redirect("/portal/school");
+}
+
+// Confirm or decline the school's ASC Camp place. submit_camp_response()
+// re-checks eligibility, the deadline and these same fields, so a stale tab
+// can't slip past the lock.
+export async function submitCampResponse(
+  registrationId: string,
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const user = await getSessionUser();
+  if (!user) return { ok: false, error: "Not authenticated." };
+
+  // Who is on record comes from the database; the form only says who is going
+  // and their phone, so a tampered form can't invent a "teacher on record".
+  const { educators: record, error: recordError } = await loadEducatorsOnRecord(supabase, registrationId);
+  if (recordError) return { ok: false, error: `Could not load your educators: ${recordError}` };
+  const going = new Set(formData.getAll("going").map(String));
+  const extraNames = formData.getAll("extra_name").map(String);
+  const extraPhones = formData.getAll("extra_phone").map(String);
+
+  const parsed = validateCampResponse({
+    status: String(formData.get("status") ?? ""),
+    educators: record.map((e) => {
+      const key = educatorKey(e);
+      const phone = String(formData.get(`phone:${key}`) ?? e.phone ?? "");
+      return { ...e, going: going.has(key), phone: phone || null };
+    }),
+    extras: extraNames.map((name, i) => ({ name, phone: extraPhones[i] ?? "" })),
+    repsConfirmed: formData.get("reps_confirmed") === "on",
+    termsAccepted: formData.get("terms") === "on",
+    notes: String(formData.get("notes") ?? ""),
+    declineReason: String(formData.get("decline_reason") ?? ""),
+  });
+  if (!parsed.ok) return parsed;
+  const v = parsed.value;
+
+  const { error } = await supabase.rpc("submit_camp_response", {
+    p_registration_id: registrationId,
+    p_status: v.status,
+    p_educators: v.educators,
+    p_reps_confirmed: v.repsConfirmed,
+    p_notes: v.notes,
+    p_decline_reason: v.declineReason,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/portal/school");
+  revalidatePath("/portal/school/camp");
+  revalidatePath("/portal/school/resources");
+
+  // The answer is saved; a failed receipt must not read as a failed confirmation.
+  const [{ data: reg, error: regError }, { data: details, error: detailsError }] =
+    await Promise.all([
+      supabase
+        .from("registrations")
+        .select("school_id, owner_id, schools(name)")
+        .eq("id", registrationId)
+        .maybeSingle(),
+      supabase.rpc("my_camp_details", { p_registration_id: registrationId }),
+    ]);
+  if (regError || detailsError || !reg) {
+    console.error("camp receipt skipped", regError ?? detailsError);
+  } else {
+    const settings = (details as { settings?: CampSettings } | null)?.settings ?? null;
+    const schoolName =
+      (reg.schools as unknown as { name: string | null } | null)?.name ?? "Your school";
+    const campTitle = settings?.title ?? "the ASC Camp";
+    const attending = v.status === "attending";
+    const admin = createAdminClient() ?? supabase;
+    const audience = await getSchoolAudience(admin, reg.school_id, reg.owner_id);
+    for (const p of audience) {
+      if (!p.email) continue;
+      await sendEmailSafely(
+        buildCampConfirmationEmail({
+          email: p.email,
+          name: p.name,
+          schoolFullName: schoolName,
+          campTitle,
+          attending,
+          venue: settings?.venue,
+          arrival: formatCampDate(settings?.arrival_at),
+          departure: formatCampDate(settings?.departure_at),
+          deadline: formatCampDate(settings?.confirm_deadline),
+          educators: v.educators.filter((e) => e.going),
+          whatsappUrl: settings?.whatsapp_url,
+        }),
+      );
+    }
+    await notifySchool(admin, reg.school_id, reg.owner_id, {
+      title: attending ? "Camp place confirmed" : "Camp response recorded",
+      body: attending
+        ? `${schoolName} is confirmed for ${campTitle}. Join the WhatsApp group from your camp page.`
+        : `${schoolName} will not attend ${campTitle}. You can change this until the deadline.`,
+      link: "/portal/school/camp",
+    });
+  }
+
+  return {
+    ok: true,
+    message:
+      v.status === "attending"
+        ? "Your place is secured. A receipt is on its way to your school's email."
+        : "Thanks for letting us know. Your response has been recorded.",
+  };
 }

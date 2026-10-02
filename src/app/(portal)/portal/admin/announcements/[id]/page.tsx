@@ -358,7 +358,6 @@ export default async function AdminAnnouncementDetail({
               <form
                 action={addAnnouncementAttachment.bind(null, id)}
                 className="space-y-2 border-t border-foreground/10 pt-4"
-                encType="multipart/form-data"
               >
                 <label className="space-y-1 block">
                   <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
