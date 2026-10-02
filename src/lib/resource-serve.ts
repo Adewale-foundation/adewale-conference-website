@@ -71,7 +71,15 @@ export async function authorizeResource(
         } | null)?.registration ?? null;
       // Tier is derived from stage advancement, not the status flag.
       const tier = tierRank(reg?.status ?? null, reg?.stage_results);
-      if (!canAccess(resource.access as string, tier)) {
+      let campAttending = false;
+      if (resource.access === "camp") {
+        const { data: attending, error } = await supabase.rpc("my_camp_attending");
+        if (error) {
+          return { response: NextResponse.json({ error: "Could not check camp access" }, { status: 500 }) };
+        }
+        campAttending = attending === true;
+      }
+      if (!canAccess(resource.access as string, tier, campAttending)) {
         return { response: NextResponse.json({ error: "Locked" }, { status: 403 }) };
       }
     }

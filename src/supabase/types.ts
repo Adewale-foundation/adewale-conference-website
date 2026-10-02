@@ -130,9 +130,50 @@ export const QUALIFICATION_REASONS = [
   "Divisional Qualification",
   "Wildcard",
   "Manual Selection",
+  "Replacement",
 ] as const;
 
 export type QualificationReason = (typeof QUALIFICATION_REASONS)[number];
+
+// A qualified school's answer to the ASC Camp invitation. "pending" is a row an
+// admin opened before the school answered; "released" means the spot was reassigned.
+export type CampStatus = "pending" | "attending" | "not_attending" | "released";
+
+export interface CampSettings {
+  edition_year: number;
+  title: string;
+  venue: string | null;
+  arrival_at: string | null;
+  departure_at: string | null;
+  confirm_deadline: string | null;
+  whatsapp_url: string | null;
+  is_open: boolean;
+}
+
+export interface CampConfirmation {
+  id: string;
+  registration_id: string;
+  school_id: string;
+  edition_year: number;
+  status: CampStatus;
+  /** Educators on record (going or not) plus any extras — see CampEducator in lib/camp. */
+  educators: {
+    name: string;
+    phone: string | null;
+    email: string | null;
+    role: "teacher" | "principal" | "educator" | "extra";
+    going: boolean;
+  }[];
+  reps_confirmed: boolean;
+  notes: string | null;
+  decline_reason: string | null;
+  respond_by: string | null;
+  admin_note: string | null;
+  /** Added by an admin rather than qualifying — see camp_eligible(). */
+  invited_manually: boolean;
+  responded_at: string | null;
+  updated_at: string;
+}
 
 export interface StageResult {
   id: string;

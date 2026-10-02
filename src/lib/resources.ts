@@ -21,6 +21,7 @@ export const RESOURCE_ACCESS_OPTIONS: { value: ResourceAccess; label: string }[]
   { value: "accepted", label: "Accepted schools" },
   { value: "qualified", label: "Qualified schools (post-zonal)" },
   { value: "finalist", label: "Finalists only" },
+  { value: "camp", label: "Camp attendees (confirmed schools)" },
 ];
 
 // Who sees a resource. Students see 'student' + 'both'; coordinators and admins

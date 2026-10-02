@@ -43,7 +43,7 @@ export default async function SchoolResources({
   if (sp.level) query = query.eq("level", sp.level);
   if (sp.type) query = query.eq("type", sp.type);
 
-  const [{ data }, { data: regData }] = await Promise.all([
+  const [{ data }, { data: regData }, { data: campAttending, error: campError }] = await Promise.all([
     query,
     supabase
       .from("registrations")
@@ -51,7 +51,9 @@ export default async function SchoolResources({
       .order("edition_year", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase.rpc("my_camp_attending"),
   ]);
+  if (campError) console.error("camp access", campError.message);
   // Unlock tier derives from how far the school advanced, not the status flag.
   const tier = tierRank(
     (regData?.status as string | undefined) ?? null,
@@ -61,7 +63,7 @@ export default async function SchoolResources({
   );
 
   const resources = ((data ?? []) as unknown as ResourceRow[]).map(mapResource);
-  const withLock = (r: (typeof resources)[number]) => ({ r, locked: !canAccess(r.access, tier) });
+  const withLock = (r: (typeof resources)[number]) => ({ r, locked: !canAccess(r.access, tier, campAttending === true) });
   // Grouped by delivery (downloadable vs link), not by type — the type shows on
   // each card, so guidelines aren't mislabelled as study packs.
   const downloads = resources
