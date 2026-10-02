@@ -11,6 +11,7 @@ import {
   Medal,
   Swords,
   UsersRound,
+  Tent,
 } from "lucide-react";
 import { Card, PortalBody, PortalHeader } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
@@ -147,6 +148,13 @@ function PreviewNav({ activeYear, view, counts }: {
             </Link>
           );
         })}
+        <Link
+          href={`/portal/admin/participants/camp${activeYear ? `?edition=${activeYear}` : ""}`}
+          className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+        >
+          <Tent className="size-4" />
+          <span>Camp</span>
+        </Link>
       </div>
     </nav>
   );
