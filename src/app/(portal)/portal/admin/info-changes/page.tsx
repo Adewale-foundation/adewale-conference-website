@@ -10,6 +10,7 @@ import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
 import { canManageModule, requireModuleView } from "@/supabase/auth";
+import { SchoolLink } from "@/components/portal/school-link";
 import type { InfoChangeRequestRow } from "@/supabase/types";
 import { approveInfoChange, declineInfoChange } from "./actions";
 
@@ -85,9 +86,9 @@ export default async function AdminInfoChanges() {
               {pending.map((r) => (
                 <Card key={r.id} className="p-4 space-y-3">
                   <div>
-                    <span className="font-medium text-foreground">
+                    <SchoolLink registrationId={r.registration_id} from="/portal/admin/info-changes" className="font-medium text-foreground">
                       {r.schools?.name ?? "Unknown school"}
-                    </span>
+                    </SchoolLink>
                     <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground mt-1">
                       {TARGET_LABEL[r.target]}
                     </p>
@@ -163,9 +164,9 @@ export default async function AdminInfoChanges() {
               {resolved.map((r) => (
                 <div key={r.id} className="flex items-center justify-between gap-4 p-4">
                   <div>
-                    <span className="font-medium text-foreground">
+                    <SchoolLink registrationId={r.registration_id} from="/portal/admin/info-changes" className="font-medium text-foreground">
                       {r.schools?.name ?? "Unknown school"}
-                    </span>
+                    </SchoolLink>
                     <p className="text-sm text-muted-foreground">
                       {TARGET_LABEL[r.target]}
                       {r.new_name

@@ -14,7 +14,8 @@ import { pageMetadata } from "@/lib/seo";
 import ActionForm from "@/components/portal/action-form";
 import { CutSelectionControls } from "@/components/portal/cut-selection-controls";
 import { createClient } from "@/supabase/server";
-import { canManageModule, requireModuleView } from "@/supabase/auth";
+import { canManageModule, canViewModule, requireModuleView } from "@/supabase/auth";
+import { SchoolLink } from "@/components/portal/school-link";
 import {
   SCHOOL_SCORE_RULE_LABELS,
   groupByLga,
@@ -53,9 +54,18 @@ export default async function PaperExamDetail({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireModuleView("participants");
-  const canManage = await canManageModule("participants");
+  const [canManage, canOpenRegistrations] = await Promise.all([
+    canManageModule("participants"),
+    canViewModule("registrations"),
+  ]);
   const { id } = await params;
   const sp = await searchParams;
+  // Back from a school's registration lands on the same tab and cut preview.
+  const examFrom = `/portal/admin/paper-exams/${id}?${new URLSearchParams(
+    Object.entries({ tab: sp.tab, cut_kind: sp.cut_kind, cut_n: sp.cut_n, cut_min: sp.cut_min }).filter(
+      (e): e is [string, string] => typeof e[1] === "string",
+    ),
+  )}`;
   const supabase = await createClient();
 
   const { data: examRow } = await supabase
@@ -804,7 +814,15 @@ export default async function PaperExamDetail({
                                 {preview.cutScore} and that score straddles the cut.
                               </p>
                               <p className="mt-1 text-xs text-muted-foreground">
-                                {preview.tied.map((t) => t.schoolName).join(", ")}. Widen N to
+                                {preview.tied.map((t, i) => (
+                                  <span key={t.registrationId}>
+                                    {i > 0 ? ", " : ""}
+                                    <SchoolLink registrationId={t.registrationId} from={examFrom} enabled={canOpenRegistrations}>
+                                      {t.schoolName}
+                                    </SchoolLink>
+                                  </span>
+                                ))}
+                                . Widen N to
                                 include all of them, tick the ones that advance, or settle it
                                 with a face-off — committing the rule as it stands would decide
                                 a national tie by sort order.
@@ -855,9 +873,14 @@ export default async function PaperExamDetail({
                                         {group.champion ? (
                                           <>
                                             {" · champion "}
-                                            <span className="font-semibold text-foreground">
+                                            <SchoolLink
+                                              registrationId={group.champion.registrationId}
+                                              from={examFrom}
+                                              enabled={canOpenRegistrations}
+                                              className="font-semibold text-foreground"
+                                            >
                                               {group.champion.schoolName}
-                                            </span>
+                                            </SchoolLink>
                                           </>
                                         ) : null}
                                       </span>
@@ -902,7 +925,11 @@ export default async function PaperExamDetail({
                                       </td>
                                     ) : null}
                                     <td className="py-1 pr-3 tabular-nums">{s.rank}</td>
-                                    <td className="py-1 pr-3">{s.schoolName}</td>
+                                    <td className="py-1 pr-3">
+                                      <SchoolLink registrationId={s.registrationId} from={examFrom} enabled={canOpenRegistrations}>
+                                        {s.schoolName}
+                                      </SchoolLink>
+                                    </td>
                                     <td className="py-1 pr-3">{s.lga ?? "—"}</td>
                                     <td className="py-1 pr-3">{divisionOf(s.lga) ?? "—"}</td>
                                     <td className="py-1 pr-3 tabular-nums">

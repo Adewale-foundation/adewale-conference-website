@@ -20,6 +20,7 @@ import {
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
 import { canManageModule, requireModuleView } from "@/supabase/auth";
+import { SchoolLink } from "@/components/portal/school-link";
 import type { StudentReplacementRow } from "@/supabase/types";
 import { approveReplacement, declineReplacement } from "./actions";
 
@@ -84,9 +85,9 @@ export default async function AdminReplacements() {
                 return (
                   <Card key={r.id} className="p-4 space-y-3">
                     <div>
-                      <span className="font-medium text-foreground">
+                      <SchoolLink registrationId={r.registration_id} from="/portal/admin/replacements" className="font-medium text-foreground">
                         {r.schools?.name ?? "Unknown school"}
-                      </span>
+                      </SchoolLink>
                       <p className="text-sm text-foreground mt-1">
                         <span className="text-muted-foreground line-through">
                           {r.old_name}
@@ -195,9 +196,9 @@ export default async function AdminReplacements() {
                   className="flex items-center justify-between gap-4 p-4"
                 >
                   <div>
-                    <span className="font-medium text-foreground">
+                    <SchoolLink registrationId={r.registration_id} from="/portal/admin/replacements" className="font-medium text-foreground">
                       {r.schools?.name ?? "Unknown school"}
-                    </span>
+                    </SchoolLink>
                     <p className="text-sm text-muted-foreground">
                       {r.old_name} → {r.new_name}
                     </p>
