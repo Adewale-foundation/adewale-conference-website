@@ -20,6 +20,8 @@ import { pageMetadata } from "@/lib/seo";
 import { LGA_OPTIONS, SCHOOL_CATEGORY_OPTIONS } from "@/lib/forms";
 import { escapeLikePattern, searchTokens } from "@/lib/search";
 import { canManageModule, requireModuleView } from "@/supabase/auth";
+import { SchoolLink } from "@/components/portal/school-link";
+import { registrationForEdition } from "@/lib/admin-links";
 import { createClient } from "@/supabase/server";
 import Link from "next/link";
 import { approveMembership, rejectMembership, updateSchool } from "./actions";
@@ -34,7 +36,7 @@ interface SchoolRow {
   category: string | null;
   email: string | null;
   school_code: string | null;
-  registrations: { count: number }[];
+  registrations: { id: string; edition_year: number | null }[] | null;
 }
 
 const fieldCls =
@@ -44,7 +46,10 @@ const labelCls = "block text-xs uppercase tracking-wide text-muted-foreground";
 interface PendingMember {
   id: string;
   email: string;
-  schools: { name: string | null } | null;
+  schools: {
+    name: string | null;
+    registrations: { id: string; edition_year: number | null }[] | null;
+  } | null;
 }
 
 const PAGE_SIZE = 30;
@@ -72,7 +77,7 @@ export default async function AdminSchools({
   const buildSchoolsQuery = () => {
     let schoolsQuery = supabase
       .from("schools")
-      .select("id, name, lga, category, email, school_code, registrations(count)", { count: "exact" })
+      .select("id, name, lga, category, email, school_code, registrations(id, edition_year)", { count: "exact" })
       .order("name", { ascending: true });
     if (q?.trim()) {
       for (const token of searchTokens(q)) {
@@ -84,14 +89,18 @@ export default async function AdminSchools({
     return schoolsQuery;
   };
 
-  const [{ data: schoolData, count }, { data: pendingData }] = await Promise.all([
-    buildSchoolsQuery().range(from, to),
-    supabase
-      .from("school_members")
-      .select("id, email, schools(name)")
-      .eq("status", "pending")
-      .order("created_at", { ascending: true }),
-  ]);
+  const [{ data: schoolData, count, error: schoolsError }, { data: pendingData, error: pendingError }] =
+    await Promise.all([
+      buildSchoolsQuery().range(from, to),
+      supabase
+        .from("school_members")
+        .select("id, email, schools(name, registrations(id, edition_year))")
+        .eq("status", "pending")
+        .order("created_at", { ascending: true }),
+    ]);
+  if (schoolsError || pendingError) {
+    throw new Error(`Could not load schools: ${(schoolsError ?? pendingError)!.message}`);
+  }
 
   let schools = (schoolData ?? []) as unknown as SchoolRow[];
   const pending = (pendingData ?? []) as unknown as PendingMember[];
@@ -134,9 +143,13 @@ export default async function AdminSchools({
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4"
                 >
                   <div>
-                    <span className="font-medium text-foreground">
+                    <SchoolLink
+                      registrationId={registrationForEdition(m.schools?.registrations)?.id}
+                      from={returnTo}
+                      className="font-medium text-foreground"
+                    >
                       {m.schools?.name ?? "Unknown school"}
-                    </span>
+                    </SchoolLink>
                     <p className="text-sm text-muted-foreground">{m.email}</p>
                   </div>
                   {canManage ? (
@@ -213,7 +226,13 @@ export default async function AdminSchools({
                 <div key={s.id} className="p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <span className="font-medium text-foreground">{s.name}</span>
+                      <SchoolLink
+                        registrationId={registrationForEdition(s.registrations)?.id}
+                        from={returnTo}
+                        className="font-medium text-foreground"
+                      >
+                        {s.name}
+                      </SchoolLink>
                       {s.school_code ? (
                         <span className="ml-2 rounded bg-foreground/5 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                           {s.school_code}
@@ -228,8 +247,8 @@ export default async function AdminSchools({
                       </p>
                     </div>
                     <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      {s.registrations?.[0]?.count ?? 0} registration
-                      {(s.registrations?.[0]?.count ?? 0) === 1 ? "" : "s"}
+                      {s.registrations?.length ?? 0} registration
+                      {(s.registrations?.length ?? 0) === 1 ? "" : "s"}
                     </span>
                   </div>
                   {canManage ? (

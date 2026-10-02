@@ -6,6 +6,9 @@ import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import { pageMetadata } from "@/lib/seo";
 import { canManageModule, requireModuleView } from "@/supabase/auth";
 import { createClient } from "@/supabase/server";
+import { SchoolLink } from "@/components/portal/school-link";
+import { registrationForEdition } from "@/lib/admin-links";
+import { chunk } from "@/lib/batch";
 import { mergeSchools } from "../actions";
 
 export const metadata = pageMetadata("Possible duplicate schools", "Schools that may be one school recorded twice.");
@@ -30,14 +33,18 @@ function Side({
   name,
   code,
   years,
+  registrationId,
 }: {
   name: string;
   code: string | null;
   years: number[] | null;
+  registrationId: string | null | undefined;
 }) {
   return (
     <div>
-      <span className="font-medium text-foreground">{name}</span>
+      <SchoolLink registrationId={registrationId} from={RETURN_TO} className="font-medium text-foreground">
+        {name}
+      </SchoolLink>
       {code ? (
         <span className="ml-2 rounded bg-foreground/5 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
           {code}
@@ -60,8 +67,23 @@ export default async function DuplicateSchools({
   const { notice, error } = await searchParams;
   const supabase = await createClient();
 
-  const { data } = await supabase.rpc("school_duplicate_candidates");
+  const { data, error: candidatesError } = await supabase.rpc("school_duplicate_candidates");
+  if (candidatesError) throw new Error(`Could not load duplicate candidates: ${candidatesError.message}`);
   const candidates = (data ?? []) as Candidate[];
+
+  const schoolIds = [...new Set(candidates.flatMap((c) => [c.a_id, c.b_id]))];
+  const regPages = await Promise.all(
+    chunk(schoolIds, 100).map((ids) =>
+      supabase.from("registrations").select("id, school_id, edition_year").in("school_id", ids),
+    ),
+  );
+  const regError = regPages.find((r) => r.error)?.error;
+  if (regError) throw new Error(`Could not load registrations: ${regError.message}`);
+  const regsBySchool = new Map<string, { id: string; edition_year: number | null }[]>();
+  for (const r of regPages.flatMap((p) => (p.data ?? []) as { id: string; school_id: string; edition_year: number | null }[])) {
+    regsBySchool.set(r.school_id, [...(regsBySchool.get(r.school_id) ?? []), r]);
+  }
+  const latestReg = (schoolId: string) => registrationForEdition(regsBySchool.get(schoolId))?.id;
 
   return (
     <>
@@ -117,8 +139,8 @@ export default async function DuplicateSchools({
                     ) : null}
                   </div>
                   <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                    <Side name={c.a_name} code={c.a_school_code} years={c.a_years} />
-                    <Side name={c.b_name} code={c.b_school_code} years={c.b_years} />
+                    <Side name={c.a_name} code={c.a_school_code} years={c.a_years} registrationId={latestReg(c.a_id)} />
+                    <Side name={c.b_name} code={c.b_school_code} years={c.b_years} registrationId={latestReg(c.b_id)} />
                   </div>
                   {canManage ? (
                     <div className="mt-4 flex flex-wrap gap-2">

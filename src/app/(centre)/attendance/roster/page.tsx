@@ -12,7 +12,8 @@ export default async function CentreRoster() {
   if (!session) redirect("/attendance");
   const { lead, exam } = session;
 
-  const { entries } = await loadSitting(exam);
+  // Registration ids are for admin links; centre staff have no use for them in the browser.
+  const entries = (await loadSitting(exam)).entries.map(({ registrationId: _, ...e }) => e);
 
   const mine = entries.filter((e) => e.centreId === lead.centre_id);
   // Nobody allocated these, so no lead's register shows them by default and any

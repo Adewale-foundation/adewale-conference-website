@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
-import { canManageModule, requireModuleView } from "@/supabase/auth";
+import { canManageModule, canViewModule, requireModuleView } from "@/supabase/auth";
+import { SchoolLink } from "@/components/portal/school-link";
 import {
   Card,
   EmptyState,
@@ -33,7 +34,10 @@ export default async function CentreAttendance({
   params: Promise<{ centreId: string }>;
 }) {
   await requireModuleView("participants");
-  const canManage = await canManageModule("participants");
+  const [canManage, canOpenRegistrations] = await Promise.all([
+    canManageModule("participants"),
+    canViewModule("registrations"),
+  ]);
   const { centreId } = await params;
   const supabase = await createClient();
 
@@ -196,7 +200,15 @@ export default async function CentreAttendance({
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-foreground">{entry.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{entry.schoolName}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      <SchoolLink
+                        registrationId={entry.registrationId}
+                        from={`/portal/admin/attendance/${centreId}`}
+                        enabled={canOpenRegistrations}
+                      >
+                        {entry.schoolName}
+                      </SchoolLink>
+                    </p>
                   </div>
                   <div className="min-w-0 text-xs text-muted-foreground">
                     {entry.state === "unmarked" ? (

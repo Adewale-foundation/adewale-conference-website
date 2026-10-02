@@ -3,6 +3,7 @@ import { createAdminClient } from "@/supabase/admin";
 import { chunk } from "@/lib/batch";
 import {
   buildRoster,
+  pickRegistrationPerSchool,
   schoolCentres,
   type AttendanceMark,
   type RosterCandidate,
@@ -128,13 +129,14 @@ type CandidateRow = {
  */
 export async function loadSitting(exam: OpenExam): Promise<{
   centres: ExamCentre[];
-  entries: (RosterEntry & { centreId: string | null })[];
+  entries: (RosterEntry & { centreId: string | null; registrationId: string | null })[];
 }> {
   const supabase = db();
   const centres = await listCentres(exam.edition_year);
 
   const [registrations, candidates, marks] = await Promise.all([
     fetchAll<{
+      id: string;
       school_id: string | null;
       qualification_zone: string | null;
       exam_centre_id: string | null;
@@ -142,7 +144,7 @@ export async function loadSitting(exam: OpenExam): Promise<{
     }>((from, to) =>
       supabase
         .from("registrations")
-        .select("school_id, qualification_zone, exam_centre_id, created_at")
+        .select("id, school_id, qualification_zone, exam_centre_id, created_at")
         .eq("edition_year", exam.edition_year)
         .order("created_at")
         .range(from, to),
@@ -170,6 +172,8 @@ export async function loadSitting(exam: OpenExam): Promise<{
   ]);
 
   const centreOf = schoolCentres(registrations, centres);
+  // The same registration schoolCentres allocates from, so admin links agree with the venue.
+  const registrationOf = pickRegistrationPerSchool(registrations);
 
   // Allocation is append-only so a printed sheet is never renumbered, which
   // leaves a replaced rep holding a candidate row. Same filter as the roster
@@ -188,6 +192,7 @@ export async function loadSitting(exam: OpenExam): Promise<{
   const entries = buildRoster(roster, marks).map((e) => ({
     ...e,
     centreId: centreOf.get(e.schoolId) ?? null,
+    registrationId: registrationOf.get(e.schoolId)?.id ?? null,
   }));
 
   return { centres, entries };

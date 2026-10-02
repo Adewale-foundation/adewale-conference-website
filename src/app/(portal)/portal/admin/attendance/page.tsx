@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
-import { canManageModule, requireModuleView } from "@/supabase/auth";
+import { canManageModule, canViewModule, requireModuleView } from "@/supabase/auth";
 import { Card, EmptyState, PortalBody, PortalHeader, SectionHeading, StatTile } from "@/components/portal/ui";
 import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import ActionForm from "@/components/portal/action-form";
@@ -24,7 +24,10 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminAttendance() {
   await requireModuleView("participants");
-  const canManage = await canManageModule("participants");
+  const [canManage, canOpenRegistrations] = await Promise.all([
+    canManageModule("participants"),
+    canViewModule("registrations"),
+  ]);
   const supabase = await createClient();
 
   const [{ data: exams, error: examsError }, open] = await Promise.all([
@@ -172,6 +175,7 @@ export default async function AdminAttendance() {
             centres={centres}
             canManage={canManage}
             editionYear={open.edition_year}
+            canOpenRegistrations={canOpenRegistrations}
           />
         </>
       ) : (

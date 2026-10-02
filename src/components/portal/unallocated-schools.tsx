@@ -6,9 +6,10 @@ import ActionForm from "@/components/portal/action-form";
 import { SubmitButton } from "@/components/portal/submit-button";
 import { setSchoolCentre } from "@/app/(portal)/portal/admin/attendance/actions";
 import type { RosterEntry } from "@/lib/attendance";
+import { SchoolLink } from "@/components/portal/school-link";
 import type { ExamCentre } from "@/supabase/types";
 
-type Entry = RosterEntry & { centreId: string | null };
+type Entry = RosterEntry & { centreId: string | null; registrationId: string | null };
 
 /**
  * Schools no lead can see.
@@ -23,21 +24,23 @@ export default function UnallocatedSchools({
   centres,
   canManage,
   editionYear,
+  canOpenRegistrations,
 }: {
   entries: Entry[];
   centres: ExamCentre[];
   canManage: boolean;
   editionYear: number;
+  canOpenRegistrations: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
   const schools = useMemo(() => {
-    const bySchool = new Map<string, { name: string; count: number }>();
+    const bySchool = new Map<string, { name: string; count: number; registrationId: string | null }>();
     for (const e of entries) {
       if (e.centreId !== null || !e.schoolId) continue;
       const held = bySchool.get(e.schoolId);
       if (held) held.count += 1;
-      else bySchool.set(e.schoolId, { name: e.schoolName, count: 1 });
+      else bySchool.set(e.schoolId, { name: e.schoolName, count: 1, registrationId: e.registrationId });
     }
     return [...bySchool.entries()]
       .map(([id, v]) => ({ id, ...v }))
@@ -76,7 +79,15 @@ export default function UnallocatedSchools({
               className="grid gap-2 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-foreground">{school.name}</p>
+                <p className="truncate text-sm font-bold text-foreground">
+                  <SchoolLink
+                    registrationId={school.registrationId}
+                    from="/portal/admin/attendance"
+                    enabled={canOpenRegistrations}
+                  >
+                    {school.name}
+                  </SchoolLink>
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {school.count} candidate{school.count === 1 ? "" : "s"}
                 </p>
