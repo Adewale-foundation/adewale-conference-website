@@ -104,7 +104,7 @@ export default async function AdminResources() {
         <div>
           <SectionHeading>Add a resource</SectionHeading>
           <Card className="p-5 md:p-6">
-            <form action={createResource} className="space-y-4" encType="multipart/form-data">
+            <form action={createResource} className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="sm:col-span-2 space-y-1">
                   <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Title</span>
