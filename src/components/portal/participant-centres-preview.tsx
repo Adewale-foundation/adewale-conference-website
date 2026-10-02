@@ -17,6 +17,7 @@ import { centreForZone } from "@/lib/exam-centre";
 import type { CentreSaveState } from "@/components/portal/centre-save-state";
 import type { PreviewParticipant } from "@/components/portal/participants-preview-types";
 import { Select } from "@/components/ui/select";
+import { SchoolLink } from "@/components/portal/school-link";
 
 const UNASSIGNED = "Unassigned";
 const fieldClass =
@@ -63,7 +64,9 @@ export function ParticipantCentresPreview({
   focus,
   action,
   venues = [],
+  link,
 }: {
+  link: { from: string; enabled: boolean };
   participants: PreviewParticipant[];
   canManage: boolean;
   focus?: string;
@@ -451,7 +454,9 @@ export function ParticipantCentresPreview({
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="truncate text-sm font-semibold text-foreground">
-                              {participant.school}
+                              <SchoolLink registrationId={participant.id} {...link}>
+                                {participant.school}
+                              </SchoolLink>
                             </p>
                             <span
                               className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${

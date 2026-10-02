@@ -21,6 +21,7 @@ import { SubmitButton } from "@/components/portal/submit-button";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import { SchoolCertificatesCard } from "@/components/portal/participant-school-card";
+import { SchoolLink } from "@/components/portal/school-link";
 import { ParticipantCentresPreview } from "@/components/portal/participant-centres-preview";
 import {
   advanceGroupEntries,
@@ -109,6 +110,9 @@ function byScoreAt(stage: string) {
   };
 }
 
+/** Where a school name links back from, and whether this admin may open registrations. */
+type LinkCtx = { from: string; enabled: boolean };
+
 function makeHref(
   activeYear: number | null,
   view: PreviewView,
@@ -187,7 +191,9 @@ function OverviewWorkspace({
   matches,
   activeYear,
   currentStage,
+  link,
 }: {
+  link: LinkCtx;
   participants: PreviewParticipant[];
   groups: PreviewGroup[];
   matches: PreviewMatch[];
@@ -274,7 +280,7 @@ function OverviewWorkspace({
         <div className="divide-y divide-foreground/5">
           {participants.slice(0, 12).map((participant) => (
             <div key={participant.id} className="grid gap-2 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_10rem_9rem] sm:items-center">
-              <div><p className="text-sm font-semibold text-foreground">{participant.school}</p><p className="text-xs text-muted-foreground">{participant.lga ?? "No LGA"} · {participant.reps} reps</p></div>
+              <div><p className="text-sm font-semibold text-foreground"><SchoolLink registrationId={participant.id} {...link}>{participant.school}</SchoolLink></p><p className="text-xs text-muted-foreground">{participant.lga ?? "No LGA"} · {participant.reps} reps</p></div>
               <span className={`text-xs ${participant.centre.allocated ? "text-foreground" : "font-medium text-amber-700"}`}>{participant.centre.allocated ?? "Centre unconfirmed"}</span>
               <span className="text-xs font-medium text-muted-foreground sm:text-right">{participant.standing.label}</span>
             </div>
@@ -386,7 +392,9 @@ function QualificationsWorkspace({
   status,
   page,
   canManage,
+  link,
 }: {
+  link: LinkCtx;
   participants: PreviewParticipant[];
   matches: PreviewMatch[];
   activeYear: number | null;
@@ -464,7 +472,7 @@ function QualificationsWorkspace({
                 const result = resultAt(participant, "Qualifications");
                 return (
                   <form key={participant.id} action={saveQualificationDecision.bind(null, participant.id)} role="row" className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(13rem,1.4fr)_10rem_6rem_10rem_11rem_11rem] lg:items-center">
-                    <div><p className="text-sm font-semibold text-foreground">{participant.school}</p><p className="mt-0.5 text-xs text-muted-foreground">{participant.lga ?? "No LGA"} · {participant.reps} reps</p></div>
+                    <div><p className="text-sm font-semibold text-foreground"><SchoolLink registrationId={participant.id} {...link}>{participant.school}</SchoolLink></p><p className="mt-0.5 text-xs text-muted-foreground">{participant.lga ?? "No LGA"} · {participant.reps} reps</p></div>
                     <div>
                       <Link href={makeHref(activeYear, "centres", { focus: participant.id })} className={`inline-flex min-h-9 items-center text-xs font-medium hover:underline ${participant.centre.allocated ? participant.centre.isStandard ? "text-foreground" : "text-amber-700" : "text-red-700"}`}>
                         {participant.centre.allocated ?? "Confirm centre"}
@@ -488,12 +496,13 @@ function QualificationsWorkspace({
 
       <Pagination page={safePage} pageCount={pageCount} path="/portal/admin/participants" params={{ view: "qualifications", edition: activeYear ? String(activeYear) : undefined, q, status: status === "all" ? undefined : status }} />
 
-      <FaceOffSection id="qualification-face-offs" matches={faceOffs} participants={participants} stages={["Qualifications"]} activeYear={activeYear} canManage={canManage} title="Qualification face-offs" />
+      <FaceOffSection link={link} id="qualification-face-offs" matches={faceOffs} participants={participants} stages={["Qualifications"]} activeYear={activeYear} canManage={canManage} title="Qualification face-offs" />
     </div>
   );
 }
 
-function GroupsWorkspace({ participants, groups, matches, activeYear, canManage }: {
+function GroupsWorkspace({ participants, groups, matches, activeYear, canManage, link }: {
+  link: LinkCtx;
   participants: PreviewParticipant[];
   groups: PreviewGroup[];
   matches: PreviewMatch[];
@@ -531,7 +540,7 @@ function GroupsWorkspace({ participants, groups, matches, activeYear, canManage 
         <aside>
           <Card className="sticky top-20 border border-foreground/10 p-4">
             <div className="flex items-center justify-between"><div><p className="font-bebas text-xl text-foreground">Assignment queue</p><p className="text-xs text-muted-foreground">Qualified, without a group</p></div><span className="rounded-full bg-primary/15 px-2.5 py-1 text-xs font-bold text-gold-ink">{waiting.length}</span></div>
-            <div className="mt-4 space-y-2">{waiting.length ? waiting.map((participant) => <div key={participant.id} className="border border-foreground/10 bg-background px-3 py-2"><p className="text-sm font-medium text-foreground">{participant.school}</p><p className="text-xs text-muted-foreground">{participant.centre.allocated ?? "Centre unconfirmed"} · {participant.reps} reps</p></div>) : <p className="py-5 text-center text-sm text-muted-foreground">Queue clear.</p>}</div>
+            <div className="mt-4 space-y-2">{waiting.length ? waiting.map((participant) => <div key={participant.id} className="border border-foreground/10 bg-background px-3 py-2"><p className="text-sm font-medium text-foreground"><SchoolLink registrationId={participant.id} {...link}>{participant.school}</SchoolLink></p><p className="text-xs text-muted-foreground">{participant.centre.allocated ?? "Centre unconfirmed"} · {participant.reps} reps</p></div>) : <p className="py-5 text-center text-sm text-muted-foreground">Queue clear.</p>}</div>
           </Card>
         </aside>
         <div className="grid gap-4 lg:grid-cols-2">
@@ -546,7 +555,7 @@ function GroupsWorkspace({ participants, groups, matches, activeYear, canManage 
                 </div>
                 <div className="mt-4 space-y-2">{group.entries.length ? group.entries.map((entry) => (
                   <form key={entry.id} action={updateGroupEntry.bind(null, entry.id)} className="grid gap-2 border border-foreground/10 bg-background/50 p-3 sm:grid-cols-[minmax(0,1fr)_4rem_5rem]">
-                    <div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground">{entry.school}</p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{entry.advance_override === true ? "Manual advance" : entry.advance_override === false ? "Manual hold" : entry.rank != null && entry.rank <= group.advance_count ? "In advancement places" : "Outside cutoff"}</p></div>
+                    <div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground"><SchoolLink registrationId={entry.registration_id} {...link}>{entry.school}</SchoolLink></p><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{entry.advance_override === true ? "Manual advance" : entry.advance_override === false ? "Manual hold" : entry.rank != null && entry.rank <= group.advance_count ? "In advancement places" : "Outside cutoff"}</p></div>
                     <input name="rank" type="number" defaultValue={entry.rank ?? ""} placeholder="Rank" aria-label={`Rank for ${entry.school}`} className={compactInputClass} />
                     <input name="score" type="number" step="any" defaultValue={entry.score ?? ""} placeholder="Score" aria-label={`Score for ${entry.school}`} className={compactInputClass} />
                     <Select size="sm" name="advance_override" defaultValue={entry.advance_override === true ? "advance" : entry.advance_override === false ? "hold" : ""} className="sm:col-span-2" aria-label={`Advancement override for ${entry.school}`}><option value="">Use rank</option><option value="advance">Advance</option><option value="hold">Hold</option></Select>
@@ -559,18 +568,18 @@ function GroupsWorkspace({ participants, groups, matches, activeYear, canManage 
           }) : <EmptyState title="No groups yet">Create a group above to begin assignments.</EmptyState>}
         </div>
       </div>
-      <FaceOffSection id="group-stage-face-offs" matches={faceOffs} participants={participants} stages={["Grand Finale Group Stage"]} activeYear={activeYear} canManage={canManage} title="Group-stage face-offs" />
+      <FaceOffSection link={link} id="group-stage-face-offs" matches={faceOffs} participants={participants} stages={["Grand Finale Group Stage"]} activeYear={activeYear} canManage={canManage} title="Group-stage face-offs" />
     </div>
   );
 }
 
-function MatchCard({ match, canManage }: { match: PreviewMatch; canManage: boolean }) {
+function MatchCard({ match, canManage, link }: { match: PreviewMatch; canManage: boolean; link: LinkCtx }) {
   const directAdvance = match.kind === "bye";
   return (
     <div className={`border p-3 ${match.status === "needs_face_off" ? "border-amber-300 bg-amber-50" : "border-foreground/10 bg-background/60"}`}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0"><p className="text-sm font-semibold text-foreground">{directAdvance ? `${match.teamAName} advances directly` : `${match.teamAName} vs ${match.teamBName}`}</p><p className="mt-1 text-xs text-muted-foreground">{match.kind === "face_off" ? "Face-off" : directAdvance ? "Direct advance" : "Match"} · {match.status.replaceAll("_", " ")}{match.venue ? ` · ${match.venue}` : ""}</p></div>
-        {match.winnerName ? <span className="shrink-0 bg-green-100 px-2 py-1 text-[10px] font-bold uppercase text-green-800">Winner: {match.winnerName}</span> : null}
+        <div className="min-w-0"><p className="text-sm font-semibold text-foreground"><SchoolLink registrationId={match.team_a_registration_id} {...link}>{match.teamAName}</SchoolLink>{directAdvance ? " advances directly" : <> vs <SchoolLink registrationId={match.team_b_registration_id} {...link}>{match.teamBName}</SchoolLink></>}</p><p className="mt-1 text-xs text-muted-foreground">{match.kind === "face_off" ? "Face-off" : directAdvance ? "Direct advance" : "Match"} · {match.status.replaceAll("_", " ")}{match.venue ? ` · ${match.venue}` : ""}</p></div>
+        {match.winnerName ? <span className="shrink-0 bg-green-100 px-2 py-1 text-[10px] font-bold uppercase text-green-800">Winner: <SchoolLink registrationId={match.winner_registration_id} {...link}>{match.winnerName}</SchoolLink></span> : null}
       </div>
       {canManage && !directAdvance ? (
         <form action={recordMatchResult.bind(null, match.id)} className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -591,7 +600,8 @@ function MatchCard({ match, canManage }: { match: PreviewMatch; canManage: boole
 // than move them above the results (and break the filter → table reading order),
 // the section is addressable and the stage header links to it, so an unresolved
 // face-off announces itself where you are already looking.
-function FaceOffSection({ id, matches, participants, stages, activeYear, canManage, title }: {
+function FaceOffSection({ id, matches, participants, stages, activeYear, canManage, title, link }: {
+  link: LinkCtx;
   id: string;
   matches: PreviewMatch[];
   participants: PreviewParticipant[];
@@ -620,13 +630,14 @@ function FaceOffSection({ id, matches, participants, stages, activeYear, canMana
             <SubmitButton size="sm" pendingText="Creating…">Add face-off</SubmitButton>
           </form>
         ) : null}
-        <div className="grid gap-3 lg:grid-cols-2">{matches.length ? matches.map((match) => <MatchCard key={match.id} match={match} canManage={canManage} />) : <p className="text-sm text-muted-foreground">No face-offs for this stage.</p>}</div>
+        <div className="grid gap-3 lg:grid-cols-2">{matches.length ? matches.map((match) => <MatchCard key={match.id} match={match} canManage={canManage} link={link} />) : <p className="text-sm text-muted-foreground">No face-offs for this stage.</p>}</div>
       </div>
     </details>
   );
 }
 
-function KnockoutsWorkspace({ participants, matches, stages, activeYear, canManage, pendingOnly }: {
+function KnockoutsWorkspace({ participants, matches, stages, activeYear, canManage, pendingOnly, link }: {
+  link: LinkCtx;
   participants: PreviewParticipant[];
   matches: PreviewMatch[];
   stages: string[];
@@ -675,19 +686,20 @@ function KnockoutsWorkspace({ participants, matches, stages, activeYear, canMana
               return (
                 <section key={stage} className="w-[21rem] shrink-0">
                   <div className="mb-3 flex items-center justify-between"><div><h2 className="font-bebas text-2xl text-foreground">{stage}</h2><p className="text-xs text-muted-foreground">{roundMatches.length} bracket item{roundMatches.length === 1 ? "" : "s"}</p></div>{roundMatches.some(isUnresolved) ? <span className="size-2 rounded-full bg-amber-500" title="Unresolved matches" /> : <CheckCircle2 className="size-4 text-green-700" />}</div>
-                  <Card className="space-y-3 border border-foreground/10 p-3">{roundMatches.length ? roundMatches.map((match) => <MatchCard key={match.id} match={match} canManage={canManage} />) : <p className="py-6 text-center text-sm text-muted-foreground">No matches yet.</p>}{roundFaceOffs.length ? <div className="border-t border-amber-200 pt-3"><p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-amber-800">Face-offs</p>{roundFaceOffs.map((match) => <MatchCard key={match.id} match={match} canManage={canManage} />)}</div> : null}</Card>
+                  <Card className="space-y-3 border border-foreground/10 p-3">{roundMatches.length ? roundMatches.map((match) => <MatchCard key={match.id} match={match} canManage={canManage} link={link} />) : <p className="py-6 text-center text-sm text-muted-foreground">No matches yet.</p>}{roundFaceOffs.length ? <div className="border-t border-amber-200 pt-3"><p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-amber-800">Face-offs</p>{roundFaceOffs.map((match) => <MatchCard key={match.id} match={match} canManage={canManage} link={link} />)}</div> : null}</Card>
                 </section>
               );
             })}
           </div>
         </div>
       ) : <EmptyState title="No knockout stages configured" />}
-      <FaceOffSection id="knockout-face-offs" matches={[]} participants={participants} stages={knockoutStages} activeYear={activeYear} canManage={canManage} title="Create a knockout face-off" />
+      <FaceOffSection link={link} id="knockout-face-offs" matches={[]} participants={participants} stages={knockoutStages} activeYear={activeYear} canManage={canManage} title="Create a knockout face-off" />
     </div>
   );
 }
 
-function AwardsWorkspace({ participants, students, awards, stages, activeYear, q, page, canManage }: {
+function AwardsWorkspace({ participants, students, awards, stages, activeYear, q, page, canManage, link }: {
+  link: LinkCtx;
   participants: PreviewParticipant[];
   students: PreviewStudent[];
   awards: PreviewAward[];
@@ -724,7 +736,7 @@ function AwardsWorkspace({ participants, students, awards, stages, activeYear, q
         <div className="space-y-3">{paged.map((participant) => (
           <details key={participant.id} className="border border-foreground/10 bg-card">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3"><div><p className="text-sm font-semibold text-foreground">{participant.school}</p><p className="text-xs text-muted-foreground">{participant.roster.length} reps · {participant.schoolCerts.length} school certificate{participant.schoolCerts.length === 1 ? "" : "s"}</p></div><ChevronRight className="size-4 text-muted-foreground" /></summary>
-            <div className="border-t border-foreground/10 p-3"><SchoolCertificatesCard registrationId={participant.id} schoolName={participant.school} students={participant.roster} schoolCerts={participant.schoolCerts} studentCertsById={participant.studentCertsById} canManage={canManage} /></div>
+            <div className="border-t border-foreground/10 p-3"><SchoolCertificatesCard registrationId={participant.id} schoolName={participant.school} link={link} students={participant.roster} schoolCerts={participant.schoolCerts} studentCertsById={participant.studentCertsById} canManage={canManage} /></div>
           </details>
         ))}</div>
         <Pagination page={safePage} pageCount={pageCount} path="/portal/admin/participants" params={{ view: "awards", edition: activeYear ? String(activeYear) : undefined, q }} />
@@ -750,7 +762,9 @@ export function ParticipantsPreview({
   students,
   awards,
   venues,
+  canOpenRegistrations,
 }: {
+  canOpenRegistrations: boolean;
   years: number[];
   activeYear: number | null;
   currentStage: string | null;
@@ -773,6 +787,7 @@ export function ParticipantsPreview({
     (participant) => resultAt(participant, "Qualifications")?.outcome === "advanced",
   ).length;
   const unresolvedMatches = matches.filter((match) => match.kind !== "face_off" && isUnresolved(match)).length;
+  const link: LinkCtx = { from: makeHref(activeYear, view), enabled: canOpenRegistrations };
   return (
     <>
       <PortalHeader
@@ -796,12 +811,12 @@ export function ParticipantsPreview({
           <PreviewNav activeYear={activeYear} view={view} counts={{ centres: `${allocated}/${participants.length}`, qualifications: `${qualificationAdvanced}/${participants.length}`, groups: groups.reduce((sum, group) => sum + group.entries.length, 0), knockouts: unresolvedMatches }} />
 
           <main>
-            {view === "overview" ? <OverviewWorkspace participants={participants} groups={groups} matches={matches} activeYear={activeYear} currentStage={currentStage} /> : null}
-            {view === "centres" ? <ParticipantCentresPreview participants={participants} canManage={canEditCompetition} focus={focus} action={allocateQualificationZonesBulk} venues={venues} /> : null}
-            {view === "qualifications" ? <QualificationsWorkspace participants={participants} matches={matches} activeYear={activeYear} q={q} status={status} page={page} canManage={canEditCompetition} /> : null}
-            {view === "groups" ? <GroupsWorkspace participants={participants} groups={groups} matches={matches} activeYear={activeYear} canManage={canEditCompetition} /> : null}
-            {view === "knockouts" ? <KnockoutsWorkspace participants={participants} matches={matches} stages={stages} activeYear={activeYear} canManage={canEditCompetition} pendingOnly={status === "pending"} /> : null}
-            {view === "awards" ? <AwardsWorkspace participants={participants} students={students} awards={awards} stages={stages} activeYear={activeYear} q={q} page={page} canManage={canEditCompetition} /> : null}
+            {view === "overview" ? <OverviewWorkspace participants={participants} groups={groups} matches={matches} activeYear={activeYear} currentStage={currentStage} link={link} /> : null}
+            {view === "centres" ? <ParticipantCentresPreview participants={participants} canManage={canEditCompetition} focus={focus} action={allocateQualificationZonesBulk} venues={venues} link={link} /> : null}
+            {view === "qualifications" ? <QualificationsWorkspace participants={participants} matches={matches} activeYear={activeYear} q={q} status={status} page={page} canManage={canEditCompetition} link={link} /> : null}
+            {view === "groups" ? <GroupsWorkspace participants={participants} groups={groups} matches={matches} activeYear={activeYear} canManage={canEditCompetition} link={link} /> : null}
+            {view === "knockouts" ? <KnockoutsWorkspace participants={participants} matches={matches} stages={stages} activeYear={activeYear} canManage={canEditCompetition} pendingOnly={status === "pending"} link={link} /> : null}
+            {view === "awards" ? <AwardsWorkspace participants={participants} students={students} awards={awards} stages={stages} activeYear={activeYear} q={q} page={page} canManage={canEditCompetition} link={link} /> : null}
           </main>
         </div>
       </PortalBody>

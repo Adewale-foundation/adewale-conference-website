@@ -1,3 +1,4 @@
+import { SchoolLink } from "@/components/portal/school-link";
 import { Card } from "@/components/portal/ui";
 import { SubmitButton } from "@/components/portal/submit-button";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
@@ -260,9 +261,12 @@ export function SchoolCertificatesCard({
   schoolCerts,
   studentCertsById,
   canManage,
+  link,
 }: {
   registrationId: string;
   schoolName: string;
+  /** Links the heading to the registration; plain text when omitted. */
+  link?: { from: string; enabled: boolean };
   students: RosterStudent[];
   schoolCerts: { id: string; type: string | null }[];
   studentCertsById: Record<string, { id: string; type: string | null }[]>;
@@ -270,7 +274,14 @@ export function SchoolCertificatesCard({
 }) {
   return (
     <Card className="p-5 space-y-3">
-      <span className="font-bebas text-xl text-foreground">{schoolName}</span>
+      <SchoolLink
+        registrationId={link ? registrationId : null}
+        from={link?.from}
+        enabled={link?.enabled}
+        className="font-bebas text-xl text-foreground"
+      >
+        {schoolName}
+      </SchoolLink>
 
       <div className="border-t border-foreground/5 pt-3">
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">

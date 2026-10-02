@@ -17,7 +17,8 @@ import {
 import { loadCampRoster } from "@/lib/camp-data";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
-import { canManageModule, requireModuleView } from "@/supabase/auth";
+import { canManageModule, canViewModule, requireModuleView } from "@/supabase/auth";
+import { SchoolLink } from "@/components/portal/school-link";
 import { addCampSchool, removeCampSchool, saveCampConfirmation, saveCampSettings } from "./actions";
 
 export const metadata = pageMetadata("ASC Camp", "Camp confirmations from qualified schools.");
@@ -45,7 +46,10 @@ export default async function AdminCamp({
   searchParams: Promise<{ edition?: string; status?: string }>;
 }) {
   await requireModuleView("participants");
-  const canManage = await canManageModule("participants");
+  const [canManage, canOpenRegistrations] = await Promise.all([
+    canManageModule("participants"),
+    canViewModule("registrations"),
+  ]);
   const { edition, status: statusParam } = await searchParams;
   const supabase = await createClient();
 
@@ -215,7 +219,15 @@ export default async function AdminCamp({
               <Card key={r.registrationId} className="p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-semibold text-foreground">{r.schoolName}</p>
+                    <p className="font-semibold text-foreground">
+                      <SchoolLink
+                        registrationId={r.registrationId}
+                        from={href(filter === "all" ? {} : { status: filter })}
+                        enabled={canOpenRegistrations}
+                      >
+                        {r.schoolName}
+                      </SchoolLink>
+                    </p>
                     <p className="text-xs text-muted-foreground">{r.lga ?? "LGA not set"}</p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">

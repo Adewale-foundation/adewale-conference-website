@@ -16,7 +16,7 @@ import { pageMetadata } from "@/lib/seo";
 import { paperKey, paperLinksForStudents } from "@/lib/paper-results";
 import { examCentre, isKnownCentre, requestedCentre } from "@/lib/exam-centre";
 import { createClient } from "@/supabase/server";
-import { canManageModule, requireModuleView } from "@/supabase/auth";
+import { canManageModule, canViewModule, requireModuleView } from "@/supabase/auth";
 import {
   type Edition,
   type IndividualAward,
@@ -95,7 +95,10 @@ export default async function AdminParticipants({
   }>;
 }) {
   await requireModuleView("participants");
-  const canManage = await canManageModule("participants");
+  const [canManage, canOpenRegistrations] = await Promise.all([
+    canManageModule("participants"),
+    canViewModule("registrations"),
+  ]);
   const { q, edition, page: pageParam, view: viewParam, status: statusParam, focus } = await searchParams;
   const supabase = await createClient();
 
@@ -370,6 +373,7 @@ export default async function AdminParticipants({
       students={previewStudents}
       awards={previewAwards}
       venues={venues}
+      canOpenRegistrations={canOpenRegistrations}
     />
   );
 }
