@@ -558,7 +558,56 @@ export function buildDeclinedEmail(data: {
   return { to, subject, html };
 }
 
-/** Receipt for a school's ASC Camp response — attending or not. */
+// ── ASC Camp ──────────────────────────────────────────────────────────────
+// Budget covers one educator per school, so every camp email states exactly
+// who is confirmed — the one educator and the contestants — before anything else.
+
+const CAMP_P = "margin:0 0 18px;font-size:15px;line-height:24px;color:#4A4E5C;";
+
+function campBox(tone: "confirmed" | "pending" | "declined", label: string, html: string) {
+  const [bg, border, ink] =
+    tone === "confirmed"
+      ? ["#EAF6EE", "#2E8B57", "#1F6B40"]
+      : tone === "pending"
+        ? ["#FFF4DE", "#E8A020", "#8a5e0e"]
+        : ["#FBEAEA", "#C0392B", "#8E2A20"];
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:${bg};border:1px solid ${border};margin:0 0 18px;"><tr><td style="padding:18px;">
+<p class="body-font" style="margin:0 0 10px;font-size:11px;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;color:${ink};">${label}</p>
+${html}
+</td></tr></table>`;
+}
+
+function campTeamBlock(
+  primary: { name: string; phone: string | null } | null,
+  contestants: string[],
+  secondApproved = false,
+) {
+  const row = (label: string, value: string) =>
+    `<p class="body-font" style="margin:0 0 6px;font-size:14px;line-height:22px;color:#4A4E5C;"><strong style="color:#0A0F1E;">${label}:</strong> ${value}</p>`;
+  return campBox(
+    "confirmed",
+    "Confirmed to attend",
+    row(
+      secondApproved ? "Accompanying educator" : "Accompanying educator (only one)",
+      primary ? escapeHtml([primary.name, primary.phone].filter(Boolean).join(" · ")) : "Not named",
+    ) + row("Contestants", contestants.length ? contestants.map(escapeHtml).join(", ") : "Your three registered contestants"),
+  );
+}
+
+function campLogistics(data: { venue?: string | null; arrival?: string | null; departure?: string | null }) {
+  const parts = [
+    data.venue ? `<strong style="color:#0A0F1E;">Venue:</strong> ${escapeHtml(data.venue)}` : "",
+    data.arrival ? `<strong style="color:#0A0F1E;">Arrival:</strong> ${escapeHtml(data.arrival)}` : "",
+    data.departure ? `<strong style="color:#0A0F1E;">Departure:</strong> ${escapeHtml(data.departure)}` : "",
+  ].filter(Boolean);
+  return parts.length ? `<p class="body-font" style="${CAMP_P}">${parts.join("<br>")}</p>` : "";
+}
+
+function campEmailTo(email: string, name?: string | null): EmailRecipient[] {
+  return [{ email, ...(name ? { name } : {}) }];
+}
+
+/** Sent on every camp response: who is confirmed, and the state of any second-educator request. */
 export function buildCampConfirmationEmail(data: {
   email: string;
   name?: string | null;
@@ -569,45 +618,108 @@ export function buildCampConfirmationEmail(data: {
   arrival?: string | null;
   departure?: string | null;
   deadline?: string | null;
-  educators?: { name: string; phone: string | null }[];
+  primary: { name: string; phone: string | null } | null;
+  contestants: string[];
+  extra: { name: string; status: "pending" | "approved" | "declined" } | null;
   whatsappUrl?: string | null;
 }) {
-  const pStyle = "margin:0 0 18px;font-size:15px;line-height:24px;color:#4A4E5C;";
-  const row = (label: string, value?: string | null) =>
-    value
-      ? `<p class="body-font" style="margin:0 0 6px;font-size:14px;line-height:22px;color:#4A4E5C;"><strong style="color:#0A0F1E;">${label}:</strong> ${escapeHtml(value)}</p>`
-      : "";
-  const detailsBlock = data.attending
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#FBF3E2;border:1px solid #E8A020;"><tr><td style="padding:18px;">
-<p class="body-font" style="margin:0 0 10px;font-size:11px;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;color:#8a5e0e;">Your place is secured</p>
-${row("Venue", data.venue)}${row("Arrival", data.arrival)}${row("Departure", data.departure)}${row(
-  (data.educators ?? []).length > 1 ? "Accompanying educators" : "Accompanying educator",
-  (data.educators ?? []).map((e) => [e.name, e.phone].filter(Boolean).join(" · ")).join("; "),
-)}
-</td></tr></table>`
-    : `<p class="body-font" style="${pStyle}">Thank you for letting us know. Your school's place may now be offered to another school, so please reply to this email straight away if your plans change.</p>`;
-  const nextBlock = data.attending
-    ? [
-        data.whatsappUrl
-          ? `<p class="body-font" style="margin:22px 0 18px;font-size:15px;line-height:24px;color:#4A4E5C;"><strong style="color:#0A0F1E;">Join the camp WhatsApp group</strong> for updates from the Planning Committee: <a href="${escapeHtml(data.whatsappUrl)}" style="color:#8a5e0e;">${escapeHtml(data.whatsappUrl)}</a></p>`
-          : "",
-        `<p class="body-font" style="${pStyle}">Please arrive on time &mdash; accreditation and room allocation begin on arrival. Each student needs their school uniform, nightwear, toiletries, bedding, a bucket, a water bottle, a torch and any labelled medication. Students may not use phones during competition rounds. The full camp program is in your portal.</p>`,
-      ].join("")
+  const footer = `<p class="body-font" style="margin:0;font-size:15px;line-height:24px;color:#4A4E5C;">You can change your response from the portal until ${escapeHtml(data.deadline || "the confirmation deadline")}. Questions? Just reply to this email.</p>`;
+
+  if (!data.attending) {
+    const html = render("camp-confirmation", "Camp response received", {
+      intro: `We've recorded that ${data.schoolFullName} cannot attend ${data.campTitle}.`,
+      bodyBlock: `<p class="body-font" style="${CAMP_P}">Thank you for letting us know. Your school's place may now be offered to another school, so please reply straight away if your plans change.</p>`,
+      footerBlock: footer,
+      portalUrl: getPortalLoginUrl("/portal/school/camp"),
+    });
+    return { to: campEmailTo(data.email, data.name), subject: `Camp response received — ${data.schoolFullName}`, html };
+  }
+
+  const primaryName = escapeHtml(data.primary?.name ?? "your accompanying educator");
+  const extraName = data.extra ? escapeHtml(data.extra.name) : "";
+  const extraBlock = !data.extra
+    ? `<p class="body-font" style="${CAMP_P}">Our budget covers <strong style="color:#0A0F1E;">one accompanying educator per school</strong>. If you need a second (for example, for female contestants), request it from your camp page. It must be approved before they can come.</p>`
+    : data.extra.status === "pending"
+      ? campBox(
+          "pending",
+          "Second educator — not yet confirmed",
+          `<p class="body-font" style="margin:0;font-size:15px;line-height:24px;color:#4A4E5C;"><strong style="color:#0A0F1E;">${extraName} is not confirmed.</strong> Your request is awaiting approval because our budget covers one educator per school. Please do not bring ${extraName} unless you receive an approval email from us.</p>`,
+        )
+      : data.extra.status === "approved"
+        ? campBox(
+            "confirmed",
+            "Second educator — approved",
+            `<p class="body-font" style="margin:0;font-size:15px;line-height:24px;color:#4A4E5C;">${extraName} is approved as your second educator and may also accompany your students.</p>`,
+          )
+        : campBox(
+            "declined",
+            "Second educator — declined",
+            `<p class="body-font" style="margin:0;font-size:15px;line-height:24px;color:#4A4E5C;">Your request for ${extraName} was declined. ${extraName} cannot attend camp; only ${primaryName} may accompany your students.</p>`,
+          );
+  const whatsapp = data.whatsappUrl
+    ? `<p class="body-font" style="${CAMP_P}"><strong style="color:#0A0F1E;">Join the camp WhatsApp group</strong> for updates: <a href="${escapeHtml(data.whatsappUrl)}" style="color:#8a5e0e;">${escapeHtml(data.whatsappUrl)}</a></p>`
     : "";
-  const html = render("camp-confirmation", data.attending ? "Camp place confirmed" : "Camp response received", {
-    intro: data.attending
-      ? `${data.schoolFullName} is confirmed for ${data.campTitle}. We look forward to welcoming your team.`
-      : `We've recorded that ${data.schoolFullName} cannot attend ${data.campTitle}.`,
-    detailsBlock,
-    nextBlock,
-    deadline: data.deadline || "the confirmation deadline",
+  const html = render("camp-confirmation", "Camp place secured", {
+    intro: `Your place at ${data.campTitle} is secured for ${data.primary?.name ?? "your accompanying educator"} and your three contestants.`,
+    bodyBlock:
+      campTeamBlock(data.primary, data.contestants, data.extra?.status === "approved") +
+      (data.extra?.status === "approved"
+        ? ""
+        : `<p class="body-font" style="${CAMP_P}"><strong style="color:#0A0F1E;">Only ${primaryName} is confirmed to accompany your students.</strong></p>`) +
+      extraBlock +
+      campLogistics(data) +
+      whatsapp +
+      `<p class="body-font" style="${CAMP_P}">Please arrive on time. Each student needs their school uniform, nightwear, toiletries, bedding, a bucket, a water bottle, a torch and any labelled medication. Students may not use phones during competition rounds. The full camp program is in your portal.</p>`,
+    footerBlock: footer,
     portalUrl: getPortalLoginUrl("/portal/school/camp"),
   });
-  const subject = data.attending
-    ? `Camp place confirmed — ${data.schoolFullName}`
-    : `Camp response received — ${data.schoolFullName}`;
-  const to: EmailRecipient[] = [{ email: data.email, ...(data.name ? { name: data.name } : {}) }];
-  return { to, subject, html };
+  return { to: campEmailTo(data.email, data.name), subject: `Camp place secured — ${data.schoolFullName}`, html };
+}
+
+/** An admin's decision on a second-educator request. */
+export function buildCampExtraDecisionEmail(data: {
+  email: string;
+  name?: string | null;
+  schoolFullName: string;
+  campTitle: string;
+  approved: boolean;
+  primary: { name: string; phone: string | null } | null;
+  extraName: string;
+  contestants: string[];
+  adminNote?: string | null;
+  venue?: string | null;
+  arrival?: string | null;
+  departure?: string | null;
+}) {
+  const primaryName = escapeHtml(data.primary?.name ?? "your accompanying educator");
+  const extraName = escapeHtml(data.extraName);
+  const note = data.adminNote?.trim()
+    ? `<p class="body-font" style="margin:10px 0 0;font-size:14px;line-height:22px;color:#4A4E5C;"><strong style="color:#0A0F1E;">Note from the camp team:</strong> ${escapeHtml(data.adminNote.trim())}</p>`
+    : "";
+  const decision = data.approved
+    ? campBox(
+        "confirmed",
+        "Second educator — approved",
+        `<p class="body-font" style="margin:0;font-size:15px;line-height:24px;color:#4A4E5C;"><strong style="color:#0A0F1E;">${extraName} is approved as your second educator.</strong> ${primaryName} and ${extraName} may both accompany your students.</p>${note}`,
+      )
+    : campBox(
+        "declined",
+        "Second educator — declined",
+        `<p class="body-font" style="margin:0;font-size:15px;line-height:24px;color:#4A4E5C;"><strong style="color:#0A0F1E;">Your request for ${extraName} has been declined. ${extraName} cannot attend camp.</strong> Only ${primaryName} may accompany your students.</p>${note}`,
+      );
+  const html = render("camp-confirmation", data.approved ? "Second educator approved" : "Second educator declined", {
+    intro: `Your place at ${data.campTitle} remains secured for ${data.primary?.name ?? "your accompanying educator"} and your three contestants.`,
+    bodyBlock: campTeamBlock(data.primary, data.contestants, data.approved) + decision + campLogistics(data),
+    footerBlock: `<p class="body-font" style="margin:0;font-size:15px;line-height:24px;color:#4A4E5C;">Questions? Just reply to this email.</p>`,
+    portalUrl: getPortalLoginUrl("/portal/school/camp"),
+  });
+  return {
+    to: campEmailTo(data.email, data.name),
+    subject: data.approved
+      ? `Second educator approved — ${data.schoolFullName}`
+      : `Second educator declined — ${data.schoolFullName}`,
+    html,
+  };
 }
 
 /**

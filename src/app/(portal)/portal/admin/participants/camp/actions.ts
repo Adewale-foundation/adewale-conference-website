@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/supabase/server";
 import { requireManage } from "@/supabase/auth";
-import { formatCampDate, lagosInputToIso } from "@/lib/camp";
-import { notifySchool } from "@/lib/school-notify";
+import { formatCampDate, lagosInputToIso, primaryEducator, type CampEducator } from "@/lib/camp";
+import { loadContestantNames } from "@/lib/camp-data";
+import { buildCampExtraDecisionEmail, sendEmailSafely } from "@/lib/email";
+import { getSchoolAudience, notifySchool } from "@/lib/school-notify";
 import type { ActionResult } from "@/app/(portal)/portal/admin/paper-exams/actions";
-import type { CampStatus } from "@/supabase/types";
+import type { CampSettings, CampStatus } from "@/supabase/types";
 
 const denied: ActionResult = { ok: false, error: "You have read-only access to participants." };
 const CAMP_STATUSES: CampStatus[] = ["pending", "attending", "not_attending", "released"];
@@ -231,4 +233,92 @@ export async function removeCampSchool(
 
   refresh();
   return { ok: true, message: "Removed from camp." };
+}
+
+// Approve or decline a school's second educator. The place itself stays
+// secured either way; the email says exactly who may come.
+export async function decideExtraEducator(
+  registrationId: string,
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const admin = await requireManage("participants");
+  if (!admin) return denied;
+  const supabase = await createClient();
+
+  const decision = String(formData.get("decision") ?? "");
+  if (decision !== "approved" && decision !== "declined") return { ok: false, error: "Choose approve or decline." };
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  const { data: row, error: rowError } = await supabase
+    .from("camp_confirmations")
+    .select("edition_year, school_id, status, educators, extra_educator, extra_status")
+    .eq("registration_id", registrationId)
+    .maybeSingle();
+  if (rowError) return { ok: false, error: `Could not load the request: ${rowError.message}` };
+  if (!row?.extra_educator || row.status !== "attending") {
+    return { ok: false, error: "This school has no second-educator request to decide." };
+  }
+  if (!(await isLatestEdition(supabase, row.edition_year))) {
+    return { ok: false, error: "Only the current edition's camp can be edited." };
+  }
+
+  const { error } = await supabase
+    .from("camp_confirmations")
+    .update({
+      extra_status: decision,
+      extra_admin_note: note,
+      extra_decided_by: admin.user.id,
+      extra_decided_at: new Date().toISOString(),
+      updated_by: admin.user.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("registration_id", registrationId);
+  if (error) return { ok: false, error: `Could not save: ${error.message}` };
+  refresh();
+
+  // Saved; a failed email must not read as a failed decision.
+  const approved = decision === "approved";
+  const extraName = (row.extra_educator as { name: string }).name;
+  const primary = primaryEducator(row.educators as CampEducator[]);
+  const [{ data: reg, error: regError }, { data: settings, error: settingsError }, team] = await Promise.all([
+    supabase.from("registrations").select("owner_id, schools(name)").eq("id", registrationId).maybeSingle(),
+    supabase.from("camp_settings").select("*").eq("edition_year", row.edition_year).maybeSingle(),
+    loadContestantNames(supabase, registrationId),
+  ]);
+  if (regError || settingsError || team.error) {
+    console.error("camp decision email skipped", regError?.message ?? settingsError?.message ?? team.error);
+    return { ok: true, message: `Saved, but the email to the school could not be sent.` };
+  }
+  const camp = settings as CampSettings | null;
+  const schoolName = (reg?.schools as unknown as { name: string | null } | null)?.name ?? "Your school";
+  const audience = await getSchoolAudience(supabase, row.school_id, reg?.owner_id ?? null);
+  for (const p of audience) {
+    if (!p.email) continue;
+    await sendEmailSafely(
+      buildCampExtraDecisionEmail({
+        email: p.email,
+        name: p.name,
+        schoolFullName: schoolName,
+        campTitle: camp?.title ?? "the ASC Camp",
+        approved,
+        primary: primary ? { name: primary.name, phone: primary.phone } : null,
+        extraName,
+        contestants: team.names,
+        adminNote: note,
+        venue: camp?.venue,
+        arrival: formatCampDate(camp?.arrival_at),
+        departure: formatCampDate(camp?.departure_at),
+      }),
+    );
+  }
+  await notifySchool(supabase, row.school_id, reg?.owner_id ?? null, {
+    title: approved ? "Second educator approved" : "Second educator declined",
+    body: approved
+      ? `${extraName} may accompany your students alongside ${primary?.name ?? "your educator"}.`
+      : `${extraName} cannot attend camp. Only ${primary?.name ?? "your educator"} may accompany your students.`,
+    link: "/portal/school/camp",
+  });
+
+  return { ok: true, message: approved ? `Approved. ${schoolName} has been emailed.` : `Declined. ${schoolName} has been emailed.` };
 }

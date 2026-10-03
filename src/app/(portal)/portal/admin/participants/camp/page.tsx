@@ -6,12 +6,14 @@ import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import { Select } from "@/components/ui/select";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import {
+  CAMP_EXTRA_STATUS_LABEL,
   CAMP_INVITE_LABEL,
   CAMP_STATUS_LABEL,
   campCounts,
   formatCampDate,
   goingSummary,
   isoToLagosInput,
+  type CampExtraStatus,
   type CampRosterStatus,
 } from "@/lib/camp";
 import { loadCampRoster } from "@/lib/camp-data";
@@ -19,7 +21,13 @@ import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
 import { canManageModule, canViewModule, requireModuleView } from "@/supabase/auth";
 import { SchoolLink } from "@/components/portal/school-link";
-import { addCampSchool, removeCampSchool, saveCampConfirmation, saveCampSettings } from "./actions";
+import {
+  addCampSchool,
+  decideExtraEducator,
+  removeCampSchool,
+  saveCampConfirmation,
+  saveCampSettings,
+} from "./actions";
 
 export const metadata = pageMetadata("ASC Camp", "Camp confirmations from qualified schools.");
 export const dynamic = "force-dynamic";
@@ -27,7 +35,14 @@ export const dynamic = "force-dynamic";
 const inputCls =
   "w-full rounded-md border border-foreground/15 bg-card px-3 py-2 text-sm outline-none focus:border-primary disabled:bg-foreground/5";
 const labelCls = "text-[11px] uppercase tracking-[0.2em] text-muted-foreground";
-const FILTERS: (CampRosterStatus | "all" | "manual")[] = ["all", "no_response", "attending", "not_attending", "released", "manual"];
+const FILTERS: (CampRosterStatus | "all" | "manual" | "extra")[] = [
+  "all", "no_response", "attending", "not_attending", "released", "manual", "extra",
+];
+const EXTRA_TONE: Record<CampExtraStatus, string> = {
+  pending: "border-amber-400/60 bg-amber-50 text-amber-900",
+  approved: "border-green-600/40 bg-green-50 text-green-900",
+  declined: "border-red-600/40 bg-red-50 text-red-900",
+};
 const ENTRY_LABEL: Record<string, string> = {
   verified: "accepted, not qualified",
   submitted: "entry under review",
@@ -74,7 +89,9 @@ export default async function AdminCamp({
       ? rows
       : filter === "manual"
         ? rows.filter((r) => r.source === "manual")
-        : rows.filter((r) => r.status === filter);
+        : filter === "extra"
+          ? rows.filter((r) => r.extra)
+          : rows.filter((r) => r.status === filter);
   const href = (extra: Record<string, string>) =>
     `/portal/admin/participants/camp?${new URLSearchParams({ ...(year ? { edition: String(year) } : {}), ...extra })}`;
 
@@ -144,13 +161,14 @@ export default async function AdminCamp({
           </Card>
         ) : null}
 
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-7">
           <StatTile label="Invited" value={counts.eligible} />
           <StatTile label="Added by admin" value={counts.manual} />
           <StatTile label="Attending" value={counts.attending} />
           <StatTile label="Not attending" value={counts.not_attending} />
           <StatTile label="No response" value={counts.no_response} />
           <StatTile label="Released" value={counts.released} />
+          <StatTile label="Second educator pending" value={counts.extraPending} />
         </div>
 
         {editable && year ? (
@@ -200,7 +218,13 @@ export default async function AdminCamp({
                 href={href(f === "all" ? {} : { status: f })}
                 className={`inline-flex min-h-9 items-center rounded-full px-3 text-xs font-bold ${filter === f ? "bg-secondary text-secondary-foreground" : "border border-foreground/10 bg-card text-muted-foreground hover:text-foreground"}`}
               >
-                {f === "all" ? "All" : f === "manual" ? CAMP_INVITE_LABEL.manual : CAMP_STATUS_LABEL[f]}
+                {f === "all"
+                  ? "All"
+                  : f === "manual"
+                    ? CAMP_INVITE_LABEL.manual
+                    : f === "extra"
+                      ? `Second educator requests${counts.extraPending ? ` (${counts.extraPending} pending)` : ""}`
+                      : CAMP_STATUS_LABEL[f]}
               </Link>
             ))}
           </div>
@@ -250,13 +274,7 @@ export default async function AdminCamp({
                 <div className="mt-2 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
                   {r.educators.some((e) => e.going) ? (
                     <p className="sm:col-span-2">
-                      Educators going ({r.educators.filter((e) => e.going).length}):{" "}
-                      <span className="text-foreground">{goingSummary(r.educators)}</span>
-                    </p>
-                  ) : null}
-                  {r.educators.some((e) => !e.going) ? (
-                    <p className="sm:col-span-2">
-                      Not going: {r.educators.filter((e) => !e.going).map((e) => e.name).join(", ")}
+                      Educator: <span className="text-foreground">{goingSummary(r.educators)}</span>
                     </p>
                   ) : null}
                   {r.status === "attending" ? <p>Contestants confirmed: <span className="text-foreground">{r.repsConfirmed ? "Yes" : "No"}</span></p> : null}
@@ -265,6 +283,46 @@ export default async function AdminCamp({
                   {r.respondedAt ? <p>Responded {formatCampDate(r.respondedAt)}</p> : null}
                   {r.respondBy ? <p>Respond by {formatCampDate(r.respondBy)}</p> : null}
                 </div>
+                {r.extra ? (
+                  <div className={`mt-3 border px-3 py-2 text-sm ${EXTRA_TONE[r.extra.status]}`}>
+                    <p>
+                      <span className="font-semibold">Second educator — {CAMP_EXTRA_STATUS_LABEL[r.extra.status]}:</span>{" "}
+                      {r.extra.name}
+                      {r.extra.phone ? ` (${r.extra.phone})` : ""}
+                    </p>
+                    {r.extra.reason ? <p className="mt-0.5">Reason: {r.extra.reason}</p> : null}
+                    {r.extra.adminNote ? <p className="mt-0.5">Note to school: {r.extra.adminNote}</p> : null}
+                    {editable && r.extra.status === "pending" && r.status === "attending" ? (
+                      <div className="mt-2 flex flex-wrap items-start gap-2">
+                        <ActionForm action={decideExtraEducator.bind(null, r.registrationId)}>
+                          <input type="hidden" name="decision" value="approved" />
+                          <ConfirmSubmitButton
+                            size="sm"
+                            title={`Approve ${r.extra.name}?`}
+                            description={`${r.schoolName} will be emailed that ${r.extra.name} may come as a second educator.`}
+                            confirmLabel="Yes, approve"
+                          >
+                            Approve
+                          </ConfirmSubmitButton>
+                        </ActionForm>
+                        <ActionForm action={decideExtraEducator.bind(null, r.registrationId)} className="flex flex-wrap gap-2">
+                          <input type="hidden" name="decision" value="declined" />
+                          <input name="note" placeholder="Note to the school (optional)" className={`${inputCls} w-64 bg-card`} />
+                          <ConfirmSubmitButton
+                            size="sm"
+                            variant="outline"
+                            destructive
+                            title={`Decline ${r.extra.name}?`}
+                            description={`${r.schoolName} will be emailed that ${r.extra.name} cannot attend and only their first educator may come.`}
+                            confirmLabel="Yes, decline"
+                          >
+                            Decline
+                          </ConfirmSubmitButton>
+                        </ActionForm>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 {editable ? (
                   <details className="mt-3">
                     <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.15em] text-primary">Update</summary>

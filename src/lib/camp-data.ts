@@ -57,6 +57,29 @@ export async function loadEducatorsOnRecord(
   };
 }
 
+/** The school's contestants for that registration's edition — the team both camp emails name. */
+export async function loadContestantNames(
+  supabase: SupabaseClient,
+  registrationId: string,
+): Promise<{ names: string[]; error: string | null }> {
+  const { data: reg, error } = await supabase
+    .from("registrations")
+    .select("school_id, edition_year")
+    .eq("id", registrationId)
+    .maybeSingle();
+  if (error) return { names: [], error: error.message };
+  if (!reg?.school_id) return { names: [], error: "Registration not found." };
+  const { data, error: studentsError } = await supabase
+    .from("students")
+    .select("name")
+    .eq("school_id", reg.school_id)
+    .eq("edition_year", reg.edition_year)
+    .is("deactivated_at", null)
+    .order("name");
+  if (studentsError) return { names: [], error: studentsError.message };
+  return { names: ((data ?? []) as { name: string }[]).map((s) => s.name), error: null };
+}
+
 export type CampCandidate = { id: string; schoolName: string; entryStatus: string | null };
 
 /** One edition's camp roster for admins — the page and the export share it. */

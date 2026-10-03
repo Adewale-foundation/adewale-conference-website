@@ -11,7 +11,9 @@ import {
   formatCampDate,
   goingSummary,
   mergeSavedEducators,
-  MAX_EXTRA_EDUCATORS,
+  OTHER_EDUCATOR,
+  primaryEducator,
+  nameKey,
   isoToLagosInput,
   lagosInputToIso,
   isCampEligible,
@@ -47,7 +49,9 @@ function input(over: Partial<CampResponseInput> = {}): CampResponseInput {
   return {
     status: "attending",
     educators: [TEACHER, PRINCIPAL],
-    extras: [],
+    primary: educatorKey(TEACHER),
+    other: { name: "", phone: "" },
+    extra: null,
     repsConfirmed: true,
     termsAccepted: true,
     notes: "",
@@ -64,6 +68,11 @@ function confirmation(over: Partial<CampConfirmation> = {}): CampConfirmation {
     edition_year: 2026,
     status: "attending",
     educators: [{ ...TEACHER, name: "Ms Zainab Quill", phone: "08031234567", email: null }],
+    extra_educator: null,
+    extra_reason: null,
+    extra_status: null,
+    extra_admin_note: null,
+    extra_decided_at: null,
     reps_confirmed: true,
     notes: null,
     decline_reason: null,
@@ -129,52 +138,71 @@ describe("campWindow", () => {
 });
 
 describe("validateCampResponse", () => {
-  it("keeps every educator on record, going or not, plus filled-in extras", () => {
+  it("marks exactly the chosen educator as going and keeps the rest on record", () => {
+    const r = validateCampResponse(input({ primary: educatorKey(PRINCIPAL), notes: " Nut allergy " }));
+    assert.ok(r.ok);
+    assert.deepEqual(
+      r.value.educators.map((e) => [e.name, e.going]),
+      [
+        ["Mrs Ada Nwosu", false],
+        ["Dr Femi Testa", true],
+      ],
+    );
+    assert.equal(primaryEducator(r.value.educators)?.name, "Dr Femi Testa");
+    assert.equal(r.value.extra, null);
+    assert.equal(r.value.notes, "Nut allergy");
+  });
+
+  it("ignores going flags sent by the form; only the chosen one goes", () => {
+    const r = validateCampResponse(input({ educators: [TEACHER, { ...PRINCIPAL, going: true }] }));
+    assert.ok(r.ok);
+    assert.equal(r.value.educators.filter((e) => e.going).length, 1);
+  });
+
+  it("accepts someone not on record as the one educator", () => {
     const r = validateCampResponse(
-      input({
-        notes: " Nut allergy ",
-        extras: [
-          { name: " Ms Zainab Quill ", phone: "08031112222" },
-          { name: "", phone: "" },
-        ],
-      }),
+      input({ primary: OTHER_EDUCATOR, other: { name: " Ms Zainab Quill ", phone: "0803 111 2222" } }),
     );
     assert.ok(r.ok);
     assert.deepEqual(
-      r.value.educators.map((e) => [e.name, e.role, e.going]),
-      [
-        ["Mrs Ada Nwosu", "teacher", true],
-        ["Dr Femi Testa", "principal", false],
-        ["Ms Zainab Quill", "extra", true],
-      ],
+      r.value.educators.filter((e) => e.going).map((e) => [e.name, e.role]),
+      [["Ms Zainab Quill", "extra"]],
     );
-    assert.equal(r.value.notes, "Nut allergy");
-    assert.equal(goingSummary(r.value.educators), "Mrs Ada Nwosu (0803 123 4567); Ms Zainab Quill (08031112222)");
   });
 
-  it("accepts several educators going, or only extras when no one on record can come", () => {
-    assert.ok(validateCampResponse(input({ educators: [TEACHER, { ...PRINCIPAL, going: true }] })).ok);
-    const onlyExtra = validateCampResponse(
-      input({ educators: [{ ...TEACHER, going: false }], extras: [{ name: "Ms Zainab Quill", phone: "08031112222" }] }),
-    );
-    assert.ok(onlyExtra.ok);
-  });
-
-  it("needs at least one educator going", () => {
-    const r = validateCampResponse(input({ educators: [{ ...TEACHER, going: false }, PRINCIPAL] }));
-    assert.deepEqual(r, { ok: false, error: "Choose at least one educator who will accompany your students." });
-  });
-
-  it("needs a valid phone for everyone going, but not for those staying behind", () => {
-    assert.equal(validateCampResponse(input({ educators: [{ ...TEACHER, phone: "call me" }] })).ok, false);
+  it("needs a chosen educator with a valid phone", () => {
+    assert.deepEqual(validateCampResponse(input({ primary: "" })), {
+      ok: false,
+      error: "Choose the one educator who will accompany your students.",
+    });
+    assert.equal(validateCampResponse(input({ primary: "someone@else.test" })).ok, false);
     assert.equal(validateCampResponse(input({ educators: [{ ...TEACHER, phone: null }] })).ok, false);
+    assert.equal(validateCampResponse(input({ primary: OTHER_EDUCATOR, other: { name: "Ms Zainab Quill", phone: "call me" } })).ok, false);
     assert.ok(validateCampResponse(input({ educators: [TEACHER, { ...PRINCIPAL, phone: null }] })).ok);
   });
 
-  it("rejects half-filled extras and caps how many can be added", () => {
-    assert.equal(validateCampResponse(input({ extras: [{ name: "Ms Zainab Quill", phone: "" }] })).ok, false);
-    const many = Array.from({ length: MAX_EXTRA_EDUCATORS + 1 }, (_, i) => ({ name: `Teacher ${i}`, phone: "08030000000" }));
-    assert.equal(validateCampResponse(input({ extras: many })).ok, false);
+  it("takes a second educator as a request with a reason", () => {
+    const r = validateCampResponse(
+      input({ extra: { name: "Ms Zainab Quill", phone: "0803 111 2222", reason: " Two female contestants " } }),
+    );
+    assert.ok(r.ok);
+    assert.equal(r.value.extra?.name, "Ms Zainab Quill");
+    assert.equal(r.value.extra?.going, false);
+    assert.equal(r.value.extraReason, "Two female contestants");
+    assert.equal(r.value.educators.filter((e) => e.going).length, 1);
+  });
+
+  it("rejects a second educator without a reason, a phone, or who is the first one again", () => {
+    assert.equal(validateCampResponse(input({ extra: { name: "Ms Zainab Quill", phone: "08031112222", reason: "" } })).ok, false);
+    assert.equal(validateCampResponse(input({ extra: { name: "Ms Zainab Quill", phone: "", reason: "girls" } })).ok, false);
+    assert.deepEqual(
+      validateCampResponse(input({ extra: { name: "MRS. ADA NWOSU", phone: "08030000000", reason: "girls" } })),
+      { ok: false, error: "The second educator must be a different person." },
+    );
+    assert.equal(
+      validateCampResponse(input({ extra: { name: "Someone Else", phone: "0803-123-4567", reason: "girls" } })).ok,
+      false,
+    );
   });
 
   it("still requires the contestants and the terms when attending", () => {
@@ -187,6 +215,7 @@ describe("validateCampResponse", () => {
     const r = validateCampResponse(input({ status: "not_attending", declineReason: "Exams clash" }));
     assert.ok(r.ok);
     assert.deepEqual(r.value.educators, []);
+    assert.equal(r.value.extra, null);
     assert.equal(r.value.repsConfirmed, false);
     assert.equal(r.value.declineReason, "Exams clash");
   });
@@ -259,7 +288,11 @@ describe("campRosterRows", () => {
 
   it("counts by status and exports one row per school", () => {
     const rows = campRosterRows(regs, [
-      confirmation(),
+      confirmation({
+        extra_educator: { name: "Mr Bisi Marlowe", phone: "08035550000", email: null, role: "extra" },
+        extra_reason: "Two female contestants",
+        extra_status: "pending",
+      }),
       confirmation({ id: "c2", registration_id: "reg-2", status: "not_attending", decline_reason: "Exams clash" }),
     ]);
     assert.deepEqual(campCounts(rows), {
@@ -269,13 +302,20 @@ describe("campRosterRows", () => {
       no_response: 0,
       released: 0,
       manual: 0,
+      extraPending: 1,
     });
-    const csv = campCsvMatrix(rows);
-    assert.equal(csv.length, 3);
-    const unity = csv.find((row) => row[0] === "Unity College");
-    assert.equal(unity?.[2], "Qualified");
-    assert.equal(unity?.[3], "Not attending");
-    assert.equal(unity?.[8], "Exams clash");
+    const [header, ...body] = campCsvMatrix(rows);
+    assert.equal(body.length, 2);
+    const col = (row: string[], name: string) => row[header.indexOf(name)];
+    const riverbend = body.find((row) => row[0] === "Riverbend Academy")!;
+    assert.equal(col(riverbend, "Educator"), "Ms Zainab Quill (08031234567)");
+    assert.equal(col(riverbend, "Second educator"), "Mr Bisi Marlowe (08035550000)");
+    assert.equal(col(riverbend, "Second educator status"), "Awaiting approval");
+    assert.equal(col(riverbend, "Second educator reason"), "Two female contestants");
+    const unity = body.find((row) => row[0] === "Unity College")!;
+    assert.equal(col(unity, "Invited as"), "Qualified");
+    assert.equal(col(unity, "Status"), "Not attending");
+    assert.equal(col(unity, "Reason not attending"), "Exams clash");
   });
 });
 
@@ -349,7 +389,7 @@ describe("educatorsOnRecord", () => {
 });
 
 describe("mergeSavedEducators", () => {
-  it("restores saved going choices and phones, and returns saved extras", () => {
+  it("restores the saved choice and phone, and a saved educator not on record", () => {
     const record = educatorsOnRecord(
       { "Teacher Full Name": "Mrs Ada Nwosu", "Teacher Email Address": "ada@riverbend.test" },
       [],
@@ -361,7 +401,44 @@ describe("mergeSavedEducators", () => {
     const merged = mergeSavedEducators(record, saved);
     assert.equal(merged.record[0].going, true);
     assert.equal(merged.record[0].phone, "08031234567");
-    assert.deepEqual(merged.extras.map((e) => e.name), ["Ms Zainab Quill"]);
+    assert.equal(merged.other?.name, "Ms Zainab Quill");
     assert.equal(educatorKey(merged.record[0]), "ada@riverbend.test");
+  });
+});
+
+describe("nameKey", () => {
+  it("ignores titles, punctuation, case, repeats and word order", () => {
+    assert.equal(nameKey("MR. ADA NWOSU"), nameKey("Ada Nwosu Nwosu"));
+    assert.equal(nameKey("Mr. Femi Testa"), nameKey("Mr. Testa Femi"));
+    assert.equal(nameKey("Dr Femi Testa"), "femi testa");
+  });
+
+  it("still tells different people apart", () => {
+    assert.notEqual(nameKey("Mrs Ada Nwosu"), nameKey("Mrs Ada Okafor"));
+  });
+});
+
+describe("educatorsOnRecord duplicate matching", () => {
+  it("lists a teacher once when their portal account has another email and spelling", () => {
+    const list = educatorsOnRecord(
+      {
+        "Teacher Full Name": "Ada Nwosu Nwosu",
+        "Teacher Number": "0803 123 4567",
+        "Teacher Email Address": "ada@riverbend.test",
+        "Principal Full Name": "Mr. Femi Testa",
+        "Principal Email Address": "femi@riverbend.test",
+      },
+      [
+        { full_name: "MR. ADA NWOSU", email: "ada.nwosu@mail.test" },
+        { full_name: "Mr. Testa Femi", email: "testa@mail.test" },
+      ],
+    );
+    assert.deepEqual(
+      list.map((e) => [e.name, e.role]),
+      [
+        ["Ada Nwosu Nwosu", "teacher"],
+        ["Mr. Femi Testa", "principal"],
+      ],
+    );
   });
 });
