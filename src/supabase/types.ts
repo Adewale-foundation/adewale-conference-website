@@ -164,6 +164,12 @@ export interface CampConfirmation {
     role: "teacher" | "principal" | "educator" | "extra";
     going: boolean;
   }[];
+  /** A second educator the school asked for; needs an admin's approval. */
+  extra_educator: { name: string; phone: string | null; email: string | null; role: string } | null;
+  extra_reason: string | null;
+  extra_status: "pending" | "approved" | "declined" | null;
+  extra_admin_note: string | null;
+  extra_decided_at: string | null;
   reps_confirmed: boolean;
   notes: string | null;
   decline_reason: string | null;

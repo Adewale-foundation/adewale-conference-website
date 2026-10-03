@@ -9,11 +9,10 @@ import { provisionStudent, type ProvisionResult } from "@/lib/provision-student"
 import { personNameProblem } from "@/lib/person-identity";
 import { getSchoolAudience, notifySchool } from "@/lib/school-notify";
 import { buildCampConfirmationEmail, sendEmailSafely } from "@/lib/email";
-import { educatorKey, formatCampDate, validateCampResponse } from "@/lib/camp";
-import { loadEducatorsOnRecord } from "@/lib/camp-data";
+import { educatorKey, formatCampDate, primaryEducator, validateCampResponse } from "@/lib/camp";
+import { loadContestantNames, loadEducatorsOnRecord, loadMyCamp } from "@/lib/camp-data";
 import type { ActionResult } from "@/app/(portal)/portal/admin/paper-exams/actions";
 import type {
-  CampSettings,
   InfoChangeResult,
   Rep,
   ReplacementResult,
@@ -345,26 +344,28 @@ export async function submitCampResponse(
   const user = await getSessionUser();
   if (!user) return { ok: false, error: "Not authenticated." };
 
-  // Who is on record comes from the database; the form only says who is going
-  // and their phone, so a tampered form can't invent a "teacher on record".
+  // Who is on record comes from the database; the form only says which one is
+  // going and their phone, so a tampered form can't invent a "teacher on record".
   const { educators: record, error: recordError } = await loadEducatorsOnRecord(supabase, registrationId);
   if (recordError) return { ok: false, error: `Could not load your educators: ${recordError}` };
-  const going = new Set(formData.getAll("going").map(String));
-  const extraNames = formData.getAll("extra_name").map(String);
-  const extraPhones = formData.getAll("extra_phone").map(String);
+  const field = (name: string) => String(formData.get(name) ?? "");
 
   const parsed = validateCampResponse({
-    status: String(formData.get("status") ?? ""),
+    status: field("status"),
     educators: record.map((e) => {
-      const key = educatorKey(e);
-      const phone = String(formData.get(`phone:${key}`) ?? e.phone ?? "");
-      return { ...e, going: going.has(key), phone: phone || null };
+      const phone = formData.get(`phone:${educatorKey(e)}`);
+      return { ...e, phone: phone == null ? e.phone : String(phone) || null };
     }),
-    extras: extraNames.map((name, i) => ({ name, phone: extraPhones[i] ?? "" })),
+    primary: field("primary"),
+    other: { name: field("other_name"), phone: field("other_phone") },
+    extra:
+      formData.get("request_extra") === "on"
+        ? { name: field("extra_name"), phone: field("extra_phone"), reason: field("extra_reason") }
+        : null,
     repsConfirmed: formData.get("reps_confirmed") === "on",
     termsAccepted: formData.get("terms") === "on",
-    notes: String(formData.get("notes") ?? ""),
-    declineReason: String(formData.get("decline_reason") ?? ""),
+    notes: field("notes"),
+    declineReason: field("decline_reason"),
   });
   if (!parsed.ok) return parsed;
   const v = parsed.value;
@@ -373,6 +374,8 @@ export async function submitCampResponse(
     p_registration_id: registrationId,
     p_status: v.status,
     p_educators: v.educators,
+    p_extra: v.extra,
+    p_extra_reason: v.extraReason,
     p_reps_confirmed: v.repsConfirmed,
     p_notes: v.notes,
     p_decline_reason: v.declineReason,
@@ -384,23 +387,29 @@ export async function submitCampResponse(
   revalidatePath("/portal/school/resources");
 
   // The answer is saved; a failed receipt must not read as a failed confirmation.
-  const [{ data: reg, error: regError }, { data: details, error: detailsError }] =
+  // Read back what was stored: re-saving the same second educator keeps a decision.
+  const [{ data: reg, error: regError }, { camp, error: campError }, { names: contestants, error: teamError }] =
     await Promise.all([
       supabase
         .from("registrations")
         .select("school_id, owner_id, schools(name)")
         .eq("id", registrationId)
         .maybeSingle(),
-      supabase.rpc("my_camp_details", { p_registration_id: registrationId }),
+      loadMyCamp(supabase, registrationId),
+      loadContestantNames(supabase, registrationId),
     ]);
-  if (regError || detailsError || !reg) {
-    console.error("camp receipt skipped", regError ?? detailsError);
+  if (regError || campError || teamError || !reg || !camp) {
+    console.error("camp receipt skipped", regError?.message ?? campError ?? teamError);
   } else {
-    const settings = (details as { settings?: CampSettings } | null)?.settings ?? null;
+    const { settings, confirmation } = camp;
     const schoolName =
       (reg.schools as unknown as { name: string | null } | null)?.name ?? "Your school";
-    const campTitle = settings?.title ?? "the ASC Camp";
     const attending = v.status === "attending";
+    const primary = primaryEducator(v.educators);
+    const extra =
+      attending && confirmation?.extra_educator && confirmation.extra_status
+        ? { name: confirmation.extra_educator.name, status: confirmation.extra_status }
+        : null;
     const admin = createAdminClient() ?? supabase;
     const audience = await getSchoolAudience(admin, reg.school_id, reg.owner_id);
     for (const p of audience) {
@@ -410,22 +419,27 @@ export async function submitCampResponse(
           email: p.email,
           name: p.name,
           schoolFullName: schoolName,
-          campTitle,
+          campTitle: settings.title,
           attending,
-          venue: settings?.venue,
-          arrival: formatCampDate(settings?.arrival_at),
-          departure: formatCampDate(settings?.departure_at),
-          deadline: formatCampDate(settings?.confirm_deadline),
-          educators: v.educators.filter((e) => e.going),
-          whatsappUrl: settings?.whatsapp_url,
+          venue: settings.venue,
+          arrival: formatCampDate(settings.arrival_at),
+          departure: formatCampDate(settings.departure_at),
+          deadline: formatCampDate(confirmation?.respond_by ?? settings.confirm_deadline),
+          primary: primary ? { name: primary.name, phone: primary.phone } : null,
+          contestants,
+          extra,
+          whatsappUrl: settings.whatsapp_url,
         }),
       );
     }
     await notifySchool(admin, reg.school_id, reg.owner_id, {
       title: attending ? "Camp place confirmed" : "Camp response recorded",
       body: attending
-        ? `${schoolName} is confirmed for ${campTitle}. Join the WhatsApp group from your camp page.`
-        : `${schoolName} will not attend ${campTitle}. You can change this until the deadline.`,
+        ? `${schoolName}'s place is secured for ${primary?.name ?? "your educator"} and your three contestants.` +
+          (extra?.status === "pending"
+            ? ` Your request for ${extra.name} is awaiting approval; don't bring them unless it is approved.`
+            : "")
+        : `${schoolName} will not attend ${settings.title}. You can change this until the deadline.`,
       link: "/portal/school/camp",
     });
   }
@@ -434,7 +448,9 @@ export async function submitCampResponse(
     ok: true,
     message:
       v.status === "attending"
-        ? "Your place is secured. A receipt is on its way to your school's email."
+        ? v.extra
+          ? "Your place is secured for one educator and your contestants. The second educator is awaiting approval; we'll email you the decision."
+          : "Your place is secured. A confirmation is on its way to your school's email."
         : "Thanks for letting us know. Your response has been recorded.",
   };
 }

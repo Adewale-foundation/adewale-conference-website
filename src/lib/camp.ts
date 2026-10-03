@@ -104,18 +104,41 @@ export const CAMP_EDUCATOR_ROLE_LABEL: Record<CampEducatorRole, string> = {
   teacher: "Teacher",
   principal: "Principal",
   educator: "Educator",
-  extra: "Additional teacher",
+  extra: "Not on our records",
 };
 
-/** Extra accompanying teachers beyond those on record. Mirrored in submit_camp_response(). */
-export const MAX_EXTRA_EDUCATORS = 5;
+export type CampExtraStatus = "pending" | "approved" | "declined";
+
+export const CAMP_EXTRA_STATUS_LABEL: Record<CampExtraStatus, string> = {
+  pending: "Awaiting approval",
+  approved: "Approved",
+  declined: "Declined",
+};
+
+/** Choosing someone not on record as the one educator, in place of an on-record key. */
+export const OTHER_EDUCATOR = "other";
 
 const clean = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+const TITLES = new Set(["mr", "mrs", "ms", "miss", "dr", "prof", "rev", "chief", "engr", "pastor"]);
+
+/**
+ * A person's name compared as a set of words, without titles or punctuation:
+ * the entry form and a portal account often write the same teacher as
+ * "Nkem Obi Obi" and "MR. NKEM OBI", or with first and last names swapped.
+ */
+export function nameKey(name: string): string {
+  const words = name
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((w) => w && !TITLES.has(w));
+  return [...new Set(words)].sort().join(" ");
+}
 
 /**
  * The school's educators on record: the teacher and principal from the entry
  * form (the only source with phones), then any other approved portal member.
- * Deduped by email so a teacher who is also a member appears once.
+ * Deduped by email or by nameKey, so a teacher who is also a member appears once.
  */
 export function educatorsOnRecord(
   details: Record<string, unknown> | null | undefined,
@@ -124,10 +147,11 @@ export function educatorsOnRecord(
   const out: CampEducator[] = [];
   const seen = new Set<string>();
   const add = (name: string, phone: string, email: string, role: CampEducatorRole) => {
-    const key = email.toLowerCase() || `name:${name.toLowerCase()}`;
-    if (!name || seen.has(key) || seen.has(`name:${name.toLowerCase()}`)) return;
-    seen.add(key);
-    seen.add(`name:${name.toLowerCase()}`);
+    const byEmail = email ? `email:${email.toLowerCase()}` : "";
+    const byName = `name:${nameKey(name)}`;
+    if (!name || seen.has(byName) || (byEmail && seen.has(byEmail))) return;
+    seen.add(byName);
+    if (byEmail) seen.add(byEmail);
     out.push({ name, phone: phone || null, email: email || null, role, going: false });
   };
   add(clean(details?.["Teacher Full Name"]), clean(details?.["Teacher Number"]), clean(details?.["Teacher Email Address"]), "teacher");
@@ -138,10 +162,13 @@ export function educatorsOnRecord(
 
 /** Stable identity for an educator across renders and the form round trip. */
 export function educatorKey(e: Pick<CampEducator, "name" | "email">): string {
-  return e.email?.toLowerCase() || `name:${e.name.toLowerCase()}`;
+  return e.email?.toLowerCase() || `name:${nameKey(e.name)}`;
 }
 
-/** Record list with the school's saved answers laid over it, plus saved extras. */
+/**
+ * Record list with the school's saved choice laid over it. A saved primary who
+ * isn't on record comes back as `other`.
+ */
 export function mergeSavedEducators(record: CampEducator[], saved: CampEducator[] | null | undefined) {
   const savedByKey = new Map((saved ?? []).filter((e) => e.role !== "extra").map((e) => [educatorKey(e), e]));
   return {
@@ -149,15 +176,19 @@ export function mergeSavedEducators(record: CampEducator[], saved: CampEducator[
       const prev = savedByKey.get(educatorKey(e));
       return prev ? { ...e, going: prev.going, phone: prev.phone ?? e.phone } : e;
     }),
-    extras: (saved ?? []).filter((e) => e.role === "extra"),
+    other: (saved ?? []).find((e) => e.role === "extra" && e.going) ?? null,
   };
 }
 
 export type CampResponseInput = {
   status: string;
-  /** Educators on record, each with the school's going choice and phone. */
+  /** Educators on record, with any phone the school corrected. */
   educators: CampEducator[];
-  extras: { name: string; phone: string }[];
+  /** educatorKey of the one educator going, or OTHER_EDUCATOR. */
+  primary: string;
+  other: { name: string; phone: string };
+  /** A second educator, asked for with a reason; null when not requested. */
+  extra: { name: string; phone: string; reason: string } | null;
   repsConfirmed: boolean;
   termsAccepted: boolean;
   notes: string;
@@ -166,69 +197,110 @@ export type CampResponseInput = {
 
 export type CampResponse = {
   status: "attending" | "not_attending";
+  /** Every educator on record, exactly one going (or none going plus an "other" who is). */
   educators: CampEducator[];
+  extra: CampEducator | null;
+  extraReason: string | null;
   repsConfirmed: boolean;
   notes: string | null;
   declineReason: string | null;
 };
 
 const PHONE = /^\+?[\d\s()-]{7,20}$/;
+const digits = (v: string | null | undefined) => (v ?? "").replace(/\D/g, "");
+
+/** Same person, by name (see nameKey) or by phone. Mirrored in submit_camp_response(). */
+export function samePerson(
+  a: { name: string; phone: string | null },
+  b: { name: string; phone: string | null },
+): boolean {
+  return nameKey(a.name) === nameKey(b.name) || (!!digits(a.phone) && digits(a.phone) === digits(b.phone));
+}
 
 export function validateCampResponse(
   input: CampResponseInput,
 ): { ok: true; value: CampResponse } | { ok: false; error: string } {
   const notes = input.notes.trim() || null;
-  if (input.status === "attending") {
-    const record = input.educators.map((e) => ({ ...e, name: e.name.trim(), phone: e.phone?.trim() || null }));
-    for (const e of record.filter((e) => e.going)) {
-      if (!e.phone || !PHONE.test(e.phone)) {
-        return { ok: false, error: `Enter a valid phone number for ${e.name}.` };
-      }
-    }
-    const extraRows = input.extras
-      .map((x) => ({ name: x.name.trim(), phone: x.phone.trim() }))
-      .filter((x) => x.name || x.phone);
-    if (extraRows.length > MAX_EXTRA_EDUCATORS) {
-      return { ok: false, error: `Add at most ${MAX_EXTRA_EDUCATORS} additional teachers.` };
-    }
-    for (const x of extraRows) {
-      if (!x.name || !PHONE.test(x.phone)) {
-        return { ok: false, error: "Enter a name and a valid phone number for each additional teacher." };
-      }
-    }
-    const extras: CampEducator[] = extraRows.map((x) => ({
-      name: x.name,
-      phone: x.phone,
-      email: null,
-      role: "extra",
-      going: true,
-    }));
-    if (!record.some((e) => e.going) && extras.length === 0) {
-      return { ok: false, error: "Choose at least one educator who will accompany your students." };
-    }
-    if (!input.repsConfirmed) {
-      return { ok: false, error: "Confirm that your three registered contestants will attend." };
-    }
-    if (!input.termsAccepted) {
-      return { ok: false, error: "Accept the camp terms to secure your place." };
-    }
-    return {
-      ok: true,
-      value: { status: "attending", educators: [...record, ...extras], repsConfirmed: true, notes, declineReason: null },
-    };
-  }
   if (input.status === "not_attending") {
     const declineReason = input.declineReason.trim();
     if (!declineReason) return { ok: false, error: "Tell us why your school cannot attend." };
     return {
       ok: true,
-      value: { status: "not_attending", educators: [], repsConfirmed: false, notes, declineReason },
+      value: {
+        status: "not_attending",
+        educators: [],
+        extra: null,
+        extraReason: null,
+        repsConfirmed: false,
+        notes,
+        declineReason,
+      },
     };
   }
-  return { ok: false, error: "Choose whether your school is attending." };
+  if (input.status !== "attending") return { ok: false, error: "Choose whether your school is attending." };
+
+  const record = input.educators.map((e) => ({
+    ...e,
+    name: e.name.trim(),
+    phone: e.phone?.trim() || null,
+    going: false,
+  }));
+  let primary: CampEducator;
+  if (input.primary === OTHER_EDUCATOR) {
+    const name = input.other.name.trim();
+    const phone = input.other.phone.trim();
+    if (!name) return { ok: false, error: "Enter the name of the educator who will accompany your students." };
+    if (!PHONE.test(phone)) return { ok: false, error: `Enter a valid phone number for ${name}.` };
+    primary = { name, phone, email: null, role: "extra", going: true };
+  } else {
+    const chosen = record.find((e) => educatorKey(e) === input.primary);
+    if (!chosen) return { ok: false, error: "Choose the one educator who will accompany your students." };
+    if (!chosen.phone || !PHONE.test(chosen.phone)) {
+      return { ok: false, error: `Enter a valid phone number for ${chosen.name}.` };
+    }
+    chosen.going = true;
+    primary = chosen;
+  }
+
+  let extra: CampEducator | null = null;
+  let extraReason: string | null = null;
+  if (input.extra) {
+    const name = input.extra.name.trim();
+    const phone = input.extra.phone.trim();
+    extraReason = input.extra.reason.trim();
+    if (!name || !PHONE.test(phone)) {
+      return { ok: false, error: "Enter a name and a valid phone number for the second educator." };
+    }
+    if (!extraReason) return { ok: false, error: "Tell us why you need a second educator." };
+    extra = { name, phone, email: null, role: "extra", going: false };
+    if (samePerson(extra, primary)) return { ok: false, error: "The second educator must be a different person." };
+  }
+
+  if (!input.repsConfirmed) {
+    return { ok: false, error: "Confirm that your three registered contestants will attend." };
+  }
+  if (!input.termsAccepted) return { ok: false, error: "Accept the camp terms to secure your place." };
+
+  return {
+    ok: true,
+    value: {
+      status: "attending",
+      educators: primary.role === "extra" ? [...record, primary] : record,
+      extra,
+      extraReason,
+      repsConfirmed: true,
+      notes,
+      declineReason: null,
+    },
+  };
 }
 
-/** "Mrs Ada Nwosu (0803…); Ms Zainab Quill (0805…)" — the adults actually coming. */
+/** The one educator confirmed to go. */
+export function primaryEducator(educators: CampEducator[] | null | undefined): CampEducator | null {
+  return (educators ?? []).find((e) => e.going) ?? null;
+}
+
+/** "Mrs Ada Nwosu (0803…)" for the educator going. */
 export function goingSummary(educators: CampEducator[] | null | undefined): string {
   return (educators ?? [])
     .filter((e) => e.going)
@@ -245,6 +317,13 @@ export type CampRosterRow = {
   status: CampRosterStatus;
   source: CampInviteSource;
   educators: CampEducator[];
+  extra: {
+    name: string;
+    phone: string | null;
+    reason: string | null;
+    status: CampExtraStatus;
+    adminNote: string | null;
+  } | null;
   repsConfirmed: boolean;
   notes: string | null;
   declineReason: string | null;
@@ -286,6 +365,16 @@ export function campRosterRows(
         status: !c || c.status === "pending" ? "no_response" : c.status,
         source,
         educators: c?.educators ?? [],
+        extra:
+          c?.extra_educator && c.extra_status
+            ? {
+                name: c.extra_educator.name,
+                phone: c.extra_educator.phone,
+                reason: c.extra_reason,
+                status: c.extra_status,
+                adminNote: c.extra_admin_note,
+              }
+            : null,
         repsConfirmed: c?.reps_confirmed ?? false,
         notes: c?.notes ?? null,
         declineReason: c?.decline_reason ?? null,
@@ -299,11 +388,20 @@ export function campRosterRows(
 
 export function campCounts(
   rows: CampRosterRow[],
-): Record<CampRosterStatus | "eligible" | "manual", number> {
-  const counts = { eligible: rows.length, manual: 0, attending: 0, not_attending: 0, no_response: 0, released: 0 };
+): Record<CampRosterStatus | "eligible" | "manual" | "extraPending", number> {
+  const counts = {
+    eligible: rows.length,
+    manual: 0,
+    extraPending: 0,
+    attending: 0,
+    not_attending: 0,
+    no_response: 0,
+    released: 0,
+  };
   for (const r of rows) {
     counts[r.status] += 1;
     if (r.source === "manual") counts.manual += 1;
+    if (r.extra?.status === "pending") counts.extraPending += 1;
   }
   return counts;
 }
@@ -322,7 +420,8 @@ export function campCandidates<T extends { id: string; schoolName: string }>(
 export function campCsvMatrix(rows: CampRosterRow[]): string[][] {
   return [
     [
-      "School", "LGA", "Invited as", "Status", "Educators attending", "Educator count", "Contestants confirmed",
+      "School", "LGA", "Invited as", "Status", "Educator", "Second educator", "Second educator status",
+      "Second educator reason", "Contestants confirmed",
       "Notes", "Reason not attending", "Respond by", "Responded at", "Admin note",
     ],
     ...rows.map((r) => [
@@ -331,7 +430,9 @@ export function campCsvMatrix(rows: CampRosterRow[]): string[][] {
       CAMP_INVITE_LABEL[r.source],
       CAMP_STATUS_LABEL[r.status],
       goingSummary(r.educators),
-      String(r.educators.filter((e) => e.going).length),
+      r.extra ? (r.extra.phone ? `${r.extra.name} (${r.extra.phone})` : r.extra.name) : "",
+      r.extra ? CAMP_EXTRA_STATUS_LABEL[r.extra.status] : "",
+      r.extra?.reason ?? "",
       r.repsConfirmed ? "Yes" : "No",
       r.notes ?? "",
       r.declineReason ?? "",

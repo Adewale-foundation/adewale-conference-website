@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Card, EmptyState, SectionHeading } from "@/components/portal/ui";
 import CampCard from "@/components/portal/camp-card";
 import CampResponseForm from "@/components/portal/camp-response-form";
-import { campWindow, formatCampDate, goingSummary, mergeSavedEducators } from "@/lib/camp";
+import { CAMP_EXTRA_STATUS_LABEL, campWindow, formatCampDate, goingSummary, mergeSavedEducators } from "@/lib/camp";
 import { loadEducatorsOnRecord, loadMyCamp } from "@/lib/camp-data";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
@@ -64,7 +64,7 @@ export default async function SchoolCamp() {
   const reps = (repRows ?? []) as { id: string; name: string; level: string | null }[];
 
   const { settings, confirmation } = camp;
-  const { record, extras } = mergeSavedEducators(onRecord, confirmation?.educators);
+  const { record, other } = mergeSavedEducators(onRecord, confirmation?.educators);
   const win = campWindow(settings, confirmation);
 
   return (
@@ -112,14 +112,17 @@ export default async function SchoolCamp() {
                   registrationId={reg.id}
                   confirmation={confirmation}
                   record={record}
-                  savedExtras={extras}
+                  savedOther={other}
                 />
               </div>
             ) : (
               <div className="mt-2 space-y-1 text-sm">
                 {confirmation?.status === "attending" ? (
                   <p className="text-foreground">
-                    Attending with {goingSummary(confirmation.educators) || "no educators listed"}.
+                    Attending with {goingSummary(confirmation.educators) || "no educator named"}.
+                    {confirmation.extra_educator && confirmation.extra_status
+                      ? ` Second educator ${confirmation.extra_educator.name}: ${CAMP_EXTRA_STATUS_LABEL[confirmation.extra_status].toLowerCase()}.`
+                      : ""}
                   </p>
                 ) : confirmation?.status === "not_attending" ? (
                   <p className="text-foreground">Not attending: {confirmation.decline_reason}</p>

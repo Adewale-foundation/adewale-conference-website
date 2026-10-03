@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { campWindow, formatCampDate } from "@/lib/camp";
+import { campWindow, formatCampDate, primaryEducator } from "@/lib/camp";
 import { deadlineInfo } from "@/lib/challenges";
 import type { MyCamp } from "@/lib/camp-data";
 import { Card } from "@/components/portal/ui";
@@ -46,6 +46,27 @@ export default function CampCard({ camp }: { camp: MyCamp }) {
       <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
         {[when, settings.venue].filter(Boolean).join(" · ")}
       </p>
+      {status === "attending" ? (
+        <div className="mt-2 space-y-1 text-sm">
+          <p className="text-foreground">
+            Confirmed: <strong>{primaryEducator(confirmation?.educators)?.name ?? "your educator"}</strong> and
+            your three contestants.
+          </p>
+          {confirmation?.extra_educator && confirmation.extra_status === "pending" ? (
+            <p className="text-amber-800">
+              {confirmation.extra_educator.name} is awaiting approval. Don&apos;t bring them unless
+              it&apos;s approved.
+            </p>
+          ) : confirmation?.extra_educator && confirmation.extra_status === "approved" ? (
+            <p className="text-green-700">{confirmation.extra_educator.name} is approved as a second educator.</p>
+          ) : confirmation?.extra_educator && confirmation.extra_status === "declined" ? (
+            <p className="text-red-700">
+              {confirmation.extra_educator.name} was declined. Only{" "}
+              {primaryEducator(confirmation.educators)?.name ?? "your educator"} is confirmed.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {status === "pending" && win.open ? (
         <p className={`text-sm mt-2 ${deadline.soon ? "text-red-700 font-semibold" : "text-foreground"}`}>
           Confirm by {formatCampDate(win.deadline)} · {deadline.label}
