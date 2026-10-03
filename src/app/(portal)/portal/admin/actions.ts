@@ -30,7 +30,6 @@ import { permissionsFromForm } from "@/lib/admin-permissions";
 import { ZONAL_FINALS_OPTIONS } from "@/lib/forms";
 // Type only, so the "use server" boundary is untouched at runtime.
 import type { CentreSaveState } from "@/components/portal/centre-save-state";
-import { describeSyncSummary, syncAirtableToPortal } from "@/lib/airtable-sync";
 
 const STATUSES: RegistrationStatus[] = ["submitted", "verified", "declined"];
 const CONTACT_KINDS = ["teacher", "principal"] as const;
@@ -439,40 +438,6 @@ export async function inviteWaitlistEntry(entryId: string, formData: FormData) {
     link: "/portal/admin/waitlist",
   });
   revalidatePath("/portal/admin/waitlist");
-}
-
-// ── Airtable sync ────────────────────────────────────────────────────────────
-// Pulls every school + registration from Airtable (source of truth) into the
-// portal mirror — idempotent, sends no email. The sync runs with the service
-// role (RLS can't gate it), so the caller's admin role is checked explicitly.
-// The outcome lands as a notification for the acting admin.
-export async function syncAirtableRegistrations() {
-  const admin = await requireManage("registrations");
-  if (!admin) return;
-  const supabase = await createClient();
-
-  // Runs inline on Vercel for now. A very large manual pull can approach the
-  // function budget, but the scheduled GitHub Action (.github/workflows/
-  // sync-airtable.yml) runs the same idempotent sync directly against Supabase
-  // every 6 hours, so anything a manual run doesn't finish is picked up out of
-  // band. The outcome lands as a notification for the admin who triggered it.
-  let title = "Airtable sync complete";
-  let body: string;
-  try {
-    body = describeSyncSummary(await syncAirtableToPortal());
-  } catch (error) {
-    title = "Airtable sync failed";
-    body = error instanceof Error ? error.message : String(error);
-  }
-  await supabase.from("notifications").insert({
-    profile_id: admin.user.id,
-    title,
-    body,
-    link: "/portal/admin/registrations",
-  });
-  revalidatePath("/portal/admin");
-  revalidatePath("/portal/admin/editions");
-  revalidatePath("/portal/admin/registrations");
 }
 
 export async function setRegistrationStatus(

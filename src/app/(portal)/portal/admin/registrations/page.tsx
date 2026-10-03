@@ -10,7 +10,6 @@ import {
   SectionHeading,
   StatusBadge,
 } from "@/components/portal/ui";
-import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { BulkDecisionForm } from "@/components/portal/bulk-decision-form";
 import {
   genderMix,
@@ -32,7 +31,6 @@ import { createClient } from "@/supabase/server";
 import { canManageModule, requireModuleView } from "@/supabase/auth";
 import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import type { AdminRegistrationRow, RegistrationStatus, Rep } from "@/supabase/types";
-import { syncAirtableRegistrations } from "../actions";
 
 export const metadata = pageMetadata("Registrations", "Review and accept or decline entries.");
 export const dynamic = "force-dynamic";
@@ -215,23 +213,7 @@ export default async function AdminRegistrations({
                 <FileSpreadsheet className="size-4" strokeWidth={2} />
                 Excel (.xlsx)
               </a>
-              {/* Airtable stays source of truth — this pulls its rows into the
-                  portal (idempotent; result arrives as a notification). */}
-              {canManage && activeYear === currentYear ? (
-                <form action={syncAirtableRegistrations}>
-                  <ConfirmSubmitButton
-                    size="sm"
-                    variant="outline"
-                    title="Sync from Airtable?"
-                    description="Pulls every school and registration from Airtable into the portal — new rows are added, edited rows refreshed. No emails are sent. The result arrives as a notification."
-                    confirmLabel="Yes, sync"
-                  >
-                    Sync from Airtable
-                  </ConfirmSubmitButton>
-                </form>
-              ) : (
-                <ReadOnlyBadge />
-              )}
+              {canManage && activeYear === currentYear ? null : <ReadOnlyBadge />}
             </div>
           </div>
 
