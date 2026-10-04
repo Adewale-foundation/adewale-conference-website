@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/supabase/admin";
-import { chunk } from "@/lib/batch";
+import { chunk, fetchAll } from "@/lib/batch";
 import {
   buildRoster,
   pickRegistrationPerSchool,
@@ -18,22 +18,6 @@ import type { AttendanceStatus, CentreLead, ExamCentre } from "@/supabase/types"
  * RLS is not the tenant scope here — the callers are.
  */
 
-const PAGE = 1000;
-
-/** PostgREST truncates past the project's Max rows instead of erroring, and a
- *  half-listed edition is indistinguishable from a small one. */
-async function fetchAll<T>(
-  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await page(from, from + PAGE - 1);
-    if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    out.push(...rows);
-    if (rows.length < PAGE) return out;
-  }
-}
 
 function db() {
   const supabase = createAdminClient();

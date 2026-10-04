@@ -27,3 +27,20 @@ export async function mapLimit<T>(
     }),
   );
 }
+
+const FETCH_PAGE = 1000;
+
+/** Read every row a query returns. PostgREST truncates past the project's Max
+ *  rows instead of erroring, and a half-listed result looks like a small one. */
+export async function fetchAll<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += FETCH_PAGE) {
+    const { data, error } = await page(from, from + FETCH_PAGE - 1);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < FETCH_PAGE) return out;
+  }
+}
