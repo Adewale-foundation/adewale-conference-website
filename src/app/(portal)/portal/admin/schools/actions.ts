@@ -8,11 +8,14 @@ import { requireManage } from "@/supabase/auth";
 export async function approveMembership(memberId: string) {
   if (!(await requireManage("registrations"))) return;
   const supabase = await createClient();
-  // RLS (members_admin_all) restricts this to admins.
-  await supabase
+  // RLS (members_admin_all) restricts this to admins. The one-school-per-educator
+  // trigger refuses an email already approved at another school; say so rather
+  // than notifying them of access they didn't get.
+  const { error } = await supabase
     .from("school_members")
     .update({ status: "approved" })
     .eq("id", memberId);
+  if (error) redirect(backTo("/portal/admin/schools", { error: error.message }));
 
   // Notify the coordinator (if they already have an account).
   const { data: m } = await supabase

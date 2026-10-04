@@ -31,7 +31,7 @@ export default async function SchoolCamp() {
 
   const { data: reg, error: regError } = await supabase
     .from("registrations")
-    .select("id, school_id, edition_year")
+    .select("id, school_id, edition_year, schools(name)")
     .order("edition_year", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -64,6 +64,7 @@ export default async function SchoolCamp() {
   const reps = (repRows ?? []) as { id: string; name: string; level: string | null }[];
 
   const { settings, confirmation } = camp;
+  const schoolName = (reg.schools as unknown as { name: string | null } | null)?.name ?? "your school";
   const { record, other } = mergeSavedEducators(onRecord, confirmation?.educators);
   const win = campWindow(settings, confirmation);
 
@@ -106,6 +107,10 @@ export default async function SchoolCamp() {
 
           <div className="border-t border-foreground/5 pt-5">
             <h2 className="font-bebas text-2xl text-foreground">Your response</h2>
+            <p className="text-sm text-foreground">
+              You&apos;re responding for <strong>{schoolName}</strong>. If that isn&apos;t your
+              school, stop and contact the ASC team.
+            </p>
             {win.open ? (
               <div className="mt-3">
                 <CampResponseForm
@@ -113,6 +118,7 @@ export default async function SchoolCamp() {
                   confirmation={confirmation}
                   record={record}
                   savedOther={other}
+                  schoolName={schoolName}
                 />
               </div>
             ) : (

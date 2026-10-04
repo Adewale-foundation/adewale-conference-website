@@ -1,3 +1,4 @@
+import { otherSchoolFor } from "@/lib/educator-school";
 import { NextResponse } from "next/server";
 import {
   createAirtableRecord,
@@ -269,6 +270,34 @@ export async function POST(request: Request) {
             { status: 409 },
           );
         }
+      }
+
+      // One school per educator: an email already approved elsewhere would make
+      // the membership write fail after the registration was created.
+      const contactEmails = [registration.teacherEmail, registration.principalEmail]
+        .map((e) => e.trim().toLowerCase());
+      const { data: memberRows, error: memberError } = await adminDb
+        .from("school_members")
+        .select("email, school_id, schools(name)")
+        .eq("status", "approved")
+        .in("email", contactEmails);
+      if (memberError) {
+        return NextResponse.json({ error: "Could not check your details. Please try again." }, { status: 500 });
+      }
+      const taken = otherSchoolFor(
+        ((memberRows ?? []) as unknown as { email: string; school_id: string; schools: { name: string | null } | null }[])
+          .map((m) => ({ email: m.email, school_id: m.school_id, school_name: m.schools?.name ?? null })),
+        contactEmails,
+        existingSchool?.id ?? null,
+      );
+      if (taken) {
+        return NextResponse.json(
+          {
+            error: `${taken.email} is already linked to ${taken.schoolName}. An educator can belong to one school only — use a different email, or contact the ASC team if you have moved school.`,
+            code: "educator_taken",
+          },
+          { status: 409 },
+        );
       }
     }
 

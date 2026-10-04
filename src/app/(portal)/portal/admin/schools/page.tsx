@@ -22,6 +22,8 @@ import { escapeLikePattern, searchTokens } from "@/lib/search";
 import { canManageModule, requireModuleView } from "@/supabase/auth";
 import { SchoolLink } from "@/components/portal/school-link";
 import { registrationForEdition } from "@/lib/admin-links";
+import { fetchAll } from "@/lib/batch";
+import { educatorConflicts, type Membership } from "@/lib/educator-school";
 import { createClient } from "@/supabase/server";
 import Link from "next/link";
 import { approveMembership, rejectMembership, updateSchool } from "./actions";
@@ -102,6 +104,34 @@ export default async function AdminSchools({
     throw new Error(`Could not load schools: ${(schoolsError ?? pendingError)!.message}`);
   }
 
+  // Emails still linked to two schools, from before one-school-per-educator.
+  const memberships = await fetchAll<{ email: string; school_id: string; schools: { name: string | null } | null }>(
+    (from, to) =>
+      supabase
+        .from("school_members")
+        .select("email, school_id, schools(name)")
+        .eq("status", "approved")
+        .order("id")
+        .range(from, to) as unknown as PromiseLike<{
+        data: { email: string; school_id: string; schools: { name: string | null } | null }[] | null;
+        error: { message: string } | null;
+      }>,
+  );
+  const conflicts = educatorConflicts(
+    memberships.map((m): Membership => ({ email: m.email, school_id: m.school_id, school_name: m.schools?.name ?? null })),
+  );
+  const conflictSchoolIds = [...new Set(conflicts.flatMap((c) => c.schools.map((x) => x.id)))];
+  const { data: conflictRegs, error: conflictRegsError } = conflictSchoolIds.length
+    ? await supabase.from("registrations").select("id, school_id, edition_year").in("school_id", conflictSchoolIds)
+    : { data: [], error: null };
+  if (conflictRegsError) throw new Error(`Could not load registrations: ${conflictRegsError.message}`);
+  const latestRegOf = (schoolId: string) =>
+    registrationForEdition(
+      ((conflictRegs ?? []) as { id: string; school_id: string; edition_year: number | null }[]).filter(
+        (r) => r.school_id === schoolId,
+      ),
+    )?.id;
+
   let schools = (schoolData ?? []) as unknown as SchoolRow[];
   const pending = (pendingData ?? []) as unknown as PendingMember[];
   const total = count ?? schools.length;
@@ -127,6 +157,35 @@ export default async function AdminSchools({
         {error ? (
           <Card className="border-destructive/40 bg-destructive/5 p-4 text-sm text-foreground">{error}</Card>
         ) : null}
+        {conflicts.length > 0 ? (
+          <div>
+            <SectionHeading>Educators linked to more than one school ({conflicts.length})</SectionHeading>
+            <Card className="p-4 space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                An educator can belong to one school only. Open the school that should not keep this
+                email and change its educator email there.
+              </p>
+              <ul className="divide-y divide-foreground/5">
+                {conflicts.map((c) => (
+                  <li key={c.email} className="py-2">
+                    <p className="font-medium text-foreground">{c.email}</p>
+                    <p className="text-muted-foreground">
+                      {c.schools.map((school, i) => (
+                        <span key={school.id}>
+                          {i > 0 ? " · " : ""}
+                          <SchoolLink registrationId={latestRegOf(school.id)} from={returnTo}>
+                            {school.name}
+                          </SchoolLink>
+                        </span>
+                      ))}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+        ) : null}
+
         <div>
           <SectionHeading>
             Pending access {pending.length > 0 ? `(${pending.length})` : ""}
