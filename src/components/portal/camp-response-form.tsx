@@ -28,6 +28,7 @@ export default function CampResponseForm({
   confirmation,
   record,
   savedOther,
+  schoolName,
 }: {
   registrationId: string;
   confirmation: CampConfirmation | null;
@@ -35,6 +36,8 @@ export default function CampResponseForm({
   record: CampEducator[];
   /** A saved primary who isn't on record. */
   savedOther: CampEducator | null;
+  /** Repeated by the submit button, so nobody answers for a school without seeing its name. */
+  schoolName: string;
 }) {
   const [state, formAction, pending] = useActionState<ActionResult | null, FormData>(
     submitCampResponse.bind(null, registrationId),
@@ -292,6 +295,7 @@ export default function CampResponseForm({
       {state && !state.ok ? <p className="text-sm text-destructive">{state.error}</p> : null}
       {state?.ok && state.message ? <p className="text-sm text-green-700">{state.message}</p> : null}
 
+      {status ? <p className="text-sm text-muted-foreground">Responding for <strong className="text-foreground">{schoolName}</strong>.</p> : null}
       <Button type="submit" disabled={pending || !status}>
         {pending
           ? "Saving…"
