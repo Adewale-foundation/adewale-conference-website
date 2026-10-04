@@ -676,6 +676,25 @@ export function buildCampConfirmationEmail(data: {
   return { to: campEmailTo(data.email, data.name), subject: `Camp place secured — ${data.schoolFullName}`, html };
 }
 
+/** A one-off camp notice to a school (a correction or a reminder), in the camp email's frame. */
+export function buildCampNoticeEmail(data: {
+  email: string;
+  name?: string | null;
+  schoolFullName: string;
+  heading: string;
+  subject: string;
+  intro: string;
+  paragraphs: string[];
+}) {
+  const html = render("camp-confirmation", data.heading, {
+    intro: data.intro,
+    bodyBlock: data.paragraphs.map((p) => `<p class="body-font" style="${CAMP_P}">${escapeHtml(p)}</p>`).join(""),
+    footerBlock: `<p class="body-font" style="margin:0;font-size:15px;line-height:24px;color:#4A4E5C;">Questions? Just reply to this email.</p>`,
+    portalUrl: getPortalLoginUrl("/portal/school/camp"),
+  });
+  return { to: campEmailTo(data.email, data.name), subject: `${data.subject} — ${data.schoolFullName}`, html };
+}
+
 /** An admin's decision on a second-educator request. */
 export function buildCampExtraDecisionEmail(data: {
   email: string;
