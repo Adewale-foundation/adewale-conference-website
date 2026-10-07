@@ -5,6 +5,7 @@ import { Card, SectionHeading } from "@/components/portal/ui";
 import { SubmitButton } from "@/components/portal/submit-button";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
+import { loadActingEntry } from "@/lib/acting-school-data";
 import { getSessionUser } from "@/supabase/auth";
 import { isSupabaseConfigured } from "@/supabase/env";
 import { SUBJECTS, LEVELS } from "@/lib/assessments";
@@ -26,20 +27,25 @@ export default async function SchoolPlans() {
   // A plan is only visible to students when published AND assigned to someone.
   // Assignments are fetched unfiltered (RLS scopes them to this school) so both
   // queries run concurrently.
-  const [{ data }, { data: asgData }] = await Promise.all([
+  const [{ data }, { data: asgData }, { entry: acting }] = await Promise.all([
     supabase
       .from("learning_plans")
-      .select("id, title, subject, level, published")
+      .select("id, title, subject, level, published, school_id")
       .order("created_at", { ascending: false }),
     supabase.from("plan_assignments").select("plan_id"),
+    loadActingEntry(),
   ]);
-  const plans = (data ?? []) as {
-    id: string;
-    title: string;
-    subject: string | null;
-    level: string | null;
-    published: boolean;
-  }[];
+  // A sister school's plans stay out; plans with no school (templates) stay in.
+  const plans = (
+    (data ?? []) as {
+      id: string;
+      title: string;
+      subject: string | null;
+      level: string | null;
+      published: boolean;
+      school_id: string | null;
+    }[]
+  ).filter((p) => !acting?.school_id || !p.school_id || p.school_id === acting.school_id);
   const assignedIds = new Set(((asgData ?? []) as { plan_id: string }[]).map((a) => a.plan_id));
   const planState = (p: { id: string; published: boolean }) =>
     !p.published ? "draft" : assignedIds.has(p.id) ? "live" : "unassigned";

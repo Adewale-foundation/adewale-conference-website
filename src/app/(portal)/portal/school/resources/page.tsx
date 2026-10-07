@@ -5,6 +5,7 @@ import ResourcePreviewButton from "@/components/portal/resource-preview-button";
 import { Lock } from "lucide-react";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
+import { loadActingEntry } from "@/lib/acting-school-data";
 import { getSessionUser } from "@/supabase/auth";
 import { isSupabaseConfigured } from "@/supabase/env";
 import { SUBJECTS, LEVELS } from "@/lib/assessments";
@@ -43,24 +44,15 @@ export default async function SchoolResources({
   if (sp.level) query = query.eq("level", sp.level);
   if (sp.type) query = query.eq("type", sp.type);
 
-  const [{ data }, { data: regData }, { data: campAttending, error: campError }] = await Promise.all([
+  const [{ data }, { entry: regData, error: regError }, { data: campAttending, error: campError }] = await Promise.all([
     query,
-    supabase
-      .from("registrations")
-      .select("status, registration_stage_results(stage, outcome)")
-      .order("edition_year", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    loadActingEntry(),
     supabase.rpc("my_camp_attending"),
   ]);
+  if (regError) throw new Error(`Could not load your registration: ${regError}`);
   if (campError) console.error("camp access", campError.message);
   // Unlock tier derives from how far the school advanced, not the status flag.
-  const tier = tierRank(
-    (regData?.status as string | undefined) ?? null,
-    (regData?.registration_stage_results as
-      | { stage: string; outcome: string | null }[]
-      | undefined) ?? null,
-  );
+  const tier = tierRank(regData?.status ?? null, regData?.stageResults ?? null);
 
   const resources = ((data ?? []) as unknown as ResourceRow[]).map(mapResource);
   const withLock = (r: (typeof resources)[number]) => ({ r, locked: !canAccess(r.access, tier, campAttending === true) });

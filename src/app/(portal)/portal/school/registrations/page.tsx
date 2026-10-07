@@ -6,6 +6,7 @@ import { Card, SectionHeading, StatusBadge } from "@/components/portal/ui";
 import RequestInfoChangeButton from "@/components/portal/request-info-change-button";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
+import { loadActingEntry } from "@/lib/acting-school-data";
 import { getSessionUser } from "@/supabase/auth";
 import { isSupabaseConfigured } from "@/supabase/env";
 import type { Rep, RegistrationWithRelations } from "@/supabase/types";
@@ -19,11 +20,16 @@ export default async function SchoolRegistrations() {
   const user = await getSessionUser();
   if (!user) redirect("/portal/login");
 
-  const { data } = await supabase
-    .from("registrations")
-    .select("id, edition_year, status, decline_reason, reps, schools(name)")
-    .order("edition_year", { ascending: false });
-  const registrations = (data ?? []) as unknown as RegistrationWithRelations[];
+  const [{ data, error }, { entry: acting, error: actingError }] = await Promise.all([
+    supabase
+      .from("registrations")
+      .select("id, school_id, edition_year, status, decline_reason, reps, schools(name)")
+      .order("edition_year", { ascending: false }),
+    loadActingEntry(),
+  ]);
+  if (error || actingError) throw new Error(`Could not load your registrations: ${error?.message ?? actingError}`);
+  const registrations = ((data ?? []) as unknown as (RegistrationWithRelations & { school_id: string | null })[])
+    .filter((r) => !acting || r.school_id === acting.school_id);
 
   return (
     <div>

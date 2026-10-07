@@ -4,6 +4,8 @@ import { createClient } from "@/supabase/server";
 import { getSessionUser } from "@/supabase/auth";
 import { isSupabaseConfigured } from "@/supabase/env";
 import { isCampEligible } from "@/lib/camp";
+import { loadActingEntry } from "@/lib/acting-school-data";
+import SchoolSwitcher from "@/components/portal/school-switcher";
 
 export default async function SchoolLayout({
   children,
@@ -18,13 +20,8 @@ export default async function SchoolLayout({
 
   // Prefer a registration's school; otherwise fall back to an approved
   // membership — both fetched concurrently since either may win.
-  const [{ data: reg }, { data: mem }] = await Promise.all([
-    supabase
-      .from("registrations")
-      .select("id, status, schools(name), registration_stage_results(stage, outcome)")
-      .order("edition_year", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const [{ entry: reg, choices, error: regError }, { data: mem }] = await Promise.all([
+    loadActingEntry(),
     supabase
       .from("school_members")
       .select("schools(name)")
@@ -32,8 +29,9 @@ export default async function SchoolLayout({
       .limit(1)
       .maybeSingle(),
   ]);
+  if (regError) throw new Error(`Could not load your school: ${regError}`);
   const schoolName =
-    (reg?.schools as unknown as { name: string | null } | null)?.name ??
+    reg?.schoolName ??
     (mem?.schools as unknown as { name: string | null } | null)?.name ??
     null;
   // A school an admin added by hand has no qualifying result, only the flag.
@@ -46,11 +44,7 @@ export default async function SchoolLayout({
         .maybeSingle()
     : { data: null, error: null };
   if (manualError) console.error("camp invite", manualError.message);
-  const showCamp = isCampEligible(
-    (reg?.status as string | undefined) ?? null,
-    (reg?.registration_stage_results as { stage: string; outcome: string | null }[] | undefined) ?? null,
-    Boolean(manual),
-  );
+  const showCamp = isCampEligible(reg?.status ?? null, reg?.stageResults ?? null, Boolean(manual));
 
   return (
     <div className="px-4 md:px-6 py-6 md:py-8">
@@ -61,6 +55,7 @@ export default async function SchoolLayout({
         <p className="serif-display italic text-muted-foreground mt-0.5 mb-6">
           Manage your representatives and track results
         </p>
+        <SchoolSwitcher choices={choices} current={reg?.school_id ?? null} />
         <div className="flex flex-col md:flex-row md:gap-6">
           <aside className="md:w-56 shrink-0">
             <SchoolSidebar showCamp={showCamp} />

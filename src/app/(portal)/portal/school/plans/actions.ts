@@ -3,12 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/supabase/server";
+import { loadActingEntry } from "@/lib/acting-school-data";
 
 type Db = Awaited<ReturnType<typeof createClient>>;
 
 const EDITION = Number(process.env.ASC_EDITION_YEAR) || 2026;
 
+// The school being acted for; a member with no visible entry falls back to
+// their approved membership.
 async function mySchoolId(supabase: Db): Promise<string | null> {
+  const { entry } = await loadActingEntry();
+  if (entry?.school_id) return entry.school_id;
   const { data } = await supabase
     .from("school_members")
     .select("school_id")

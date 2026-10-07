@@ -7,6 +7,7 @@ import { resubmitRegistration } from "./actions";
 import { StageResults, type StageResultRow } from "@/components/portal/stage-results";
 import CampCard from "@/components/portal/camp-card";
 import { loadMyCamp } from "@/lib/camp-data";
+import { loadActingEntry } from "@/lib/acting-school-data";
 import {
   PAPER_BASE,
   paperLinksForStudents,
@@ -37,12 +38,14 @@ export default async function SchoolOverview() {
   if (!user) redirect("/portal/login");
 
   const [
+    { entry: acting, error: actingError },
     { data: regData },
     { data: memberData },
     { data: editionData },
     { data: guidelineRows },
     { data: announcementRows },
   ] = await Promise.all([
+    loadActingEntry(),
     supabase
       .from("registrations")
       .select("id, edition_year, status, decline_reason, reps, school_id, schools(name)")
@@ -69,7 +72,13 @@ export default async function SchoolOverview() {
       .order("sent_at", { ascending: false })
       .limit(3),
   ]);
-  const registrations = (regData ?? []) as unknown as RegistrationWithRelations[];
+  if (actingError) throw new Error(`Could not load your school: ${actingError}`);
+  const allRegistrations = (regData ?? []) as unknown as (RegistrationWithRelations & { school_id: string | null })[];
+  // Only the school being acted for: an owner of past entries at a school they
+  // have left, or of two schools this edition, would otherwise see both mixed.
+  const registrations = acting
+    ? allRegistrations.filter((r) => r.school_id === acting.school_id)
+    : allRegistrations;
   const announcements = (announcementRows ?? []) as {
     id: string;
     title: string;
@@ -87,7 +96,7 @@ export default async function SchoolOverview() {
   ).filter((m) => m.status === "pending");
   const editions = (editionData ?? []) as Edition[];
   const latest = editions[0] ?? null;
-  const registeredYears = new Set(registrations.map((r) => r.edition_year));
+  const registeredYears = new Set(allRegistrations.map((r) => r.edition_year));
 
   const entry = registrations[0] ?? null;
   const accepted = entry?.status === "verified";
@@ -460,7 +469,7 @@ export default async function SchoolOverview() {
         </div>
       ) : null}
 
-      {registrations.length === 0 ? (
+      {allRegistrations.length === 0 ? (
         <div>
           <SectionHeading>Link a public registration</SectionHeading>
           <Card className="p-5 md:p-6">

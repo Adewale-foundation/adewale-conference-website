@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { ACTING_SCHOOL_COOKIE } from "@/lib/acting-school";
+import { loadActingEntry } from "@/lib/acting-school-data";
 import { createClient } from "@/supabase/server";
 import { getSessionUser } from "@/supabase/auth";
 import { createAdminClient } from "@/supabase/admin";
@@ -18,6 +21,23 @@ import type {
   ReplacementResult,
 } from "@/supabase/types";
 
+// Only a school among the caller's own current entries can be chosen; the
+// cookie is a preference, RLS still decides what each page reads.
+export async function chooseActingSchool(formData: FormData): Promise<void> {
+  const schoolId = String(formData.get("school_id") ?? "");
+  const { choices, error } = await loadActingEntry();
+  if (error) throw new Error(`Could not load your schools: ${error}`);
+  if (!choices.some((c) => c.school_id === schoolId)) return;
+  (await cookies()).set(ACTING_SCHOOL_COOKIE, schoolId, {
+    path: "/portal",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  revalidatePath("/portal/school", "layout");
+}
+
 // Provision a student for the coordinator's school: a Supabase auth user with a
 // synthetic email + the access code as password (so they log in with just the
 // code). Returns the access code on success (or the existing one), or an error.
@@ -31,18 +51,11 @@ async function createStudentRecord(
   const user = await getSessionUser();
   if (!user) return { error: "Not authenticated." };
 
-  // The coordinator's school — from any registration they can access (owner OR
-  // approved member). Works even when their membership is still pending.
-  // The coordinator's school + the edition they most recently registered for, so
-  // provisioned students carry that edition — edition-scoped plans/exams match on
-  // students.edition_year (untagged students are silently skipped).
-  const { data: regs } = await supabase
-    .from("registrations")
-    .select("school_id, edition_year")
-    .order("edition_year", { ascending: false });
-  const reg = (
-    (regs ?? []) as { school_id: string | null; edition_year: number | null }[]
-  ).find((r) => r.school_id);
+  // The school being acted for (owner OR approved member) and its newest
+  // edition, so provisioned students carry that edition — edition-scoped
+  // plans/exams match on students.edition_year.
+  const { entry: reg, error: regError } = await loadActingEntry();
+  if (regError) return { error: `Could not load your school: ${regError}` };
   const schoolId = reg?.school_id;
   if (!schoolId)
     return { error: "Register or link your school first." };
