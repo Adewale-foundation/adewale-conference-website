@@ -5,6 +5,7 @@ import ReplaceRepButton from "@/components/portal/replace-rep-button";
 import { pageMetadata } from "@/lib/seo";
 import { personNameKey } from "@/lib/person-identity";
 import { createClient } from "@/supabase/server";
+import { loadActingEntry } from "@/lib/acting-school-data";
 import { getSessionUser } from "@/supabase/auth";
 import { isSupabaseConfigured } from "@/supabase/env";
 import type { Rep, RegistrationWithRelations } from "@/supabase/types";
@@ -18,21 +19,27 @@ export default async function SchoolStudents() {
   const user = await getSessionUser();
   if (!user) redirect("/portal/login");
 
-  const [{ data: regData }, { data: studentData }, { data: pendingData }] = await Promise.all([
+  const { entry: acting, error: actingError } = await loadActingEntry();
+  if (actingError) throw new Error(`Could not load your school: ${actingError}`);
+  // Scoped to the school being acted for, so a rep's code is never matched by
+  // name against a sister school's student.
+  let studentQuery = supabase.from("students").select("name, level, access_code").is("deactivated_at", null);
+  if (acting?.school_id) studentQuery = studentQuery.eq("school_id", acting.school_id);
+  const [{ data: regData, error: regError }, { data: studentData, error: studentError }, { data: pendingData, error: pendingError }] = await Promise.all([
     supabase
       .from("registrations")
-      .select("id, edition_year, reps")
+      .select("id, school_id, edition_year, reps")
       .order("edition_year", { ascending: false }),
-    supabase
-      .from("students")
-      .select("name, level, access_code")
-      .is("deactivated_at", null),
+    studentQuery,
     supabase
       .from("student_replacements")
       .select("registration_id, old_name")
       .eq("status", "pending"),
   ]);
-  const registrations = (regData ?? []) as unknown as RegistrationWithRelations[];
+  const loadError = regError ?? studentError ?? pendingError;
+  if (loadError) throw new Error(`Could not load your students: ${loadError.message}`);
+  const registrations = ((regData ?? []) as unknown as (RegistrationWithRelations & { school_id: string | null })[])
+    .filter((r) => !acting || r.school_id === acting.school_id);
   const students = (studentData ?? []) as {
     name: string;
     level: string | null;

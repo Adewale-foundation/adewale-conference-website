@@ -7,6 +7,7 @@ import {
 } from "@/components/portal/school-competition-results";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
+import { loadActingEntry } from "@/lib/acting-school-data";
 import { getSessionUser } from "@/supabase/auth";
 import { isSupabaseConfigured } from "@/supabase/env";
 import type { Edition } from "@/supabase/types";
@@ -20,6 +21,10 @@ export default async function SchoolResults() {
   const user = await getSessionUser();
   if (!user) redirect("/portal/login");
 
+  const { entry: acting, schoolEntries, error: actingError } = await loadActingEntry();
+  if (actingError) throw new Error(`Could not load your school: ${actingError}`);
+  let studentQuery = supabase.from("students").select("name, auth_user_id").is("deactivated_at", null);
+  if (acting?.school_id) studentQuery = studentQuery.eq("school_id", acting.school_id);
   const [{ data: schoolResultData }, { data: editionData }, { data: studentData }, { data: attemptData }] =
     await Promise.all([
       supabase.rpc("get_my_school_results"),
@@ -27,17 +32,16 @@ export default async function SchoolResults() {
         .from("editions")
         .select("year, title, registration_open, stages, current_stage")
         .order("year", { ascending: false }),
-      supabase
-        .from("students")
-        .select("name, auth_user_id")
-        .is("deactivated_at", null),
+      studentQuery,
       supabase
         .from("assessment_attempts")
         .select("id, student_user_id, score, total, violations, mode, assessments(title)")
         .eq("status", "submitted")
         .order("created_at", { ascending: false }),
     ]);
-  const schoolResults = (schoolResultData ?? []) as unknown as SchoolCompetitionRow[];
+  const actingRegIds = new Set(schoolEntries.map((e) => e.id));
+  const schoolResults = ((schoolResultData ?? []) as unknown as SchoolCompetitionRow[])
+    .filter((r) => !acting || actingRegIds.has(r.registration_id));
   const editions = (editionData ?? []) as Edition[];
 
   const students = (studentData ?? []) as {

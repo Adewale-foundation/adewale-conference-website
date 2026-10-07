@@ -5,6 +5,7 @@ import CampCard from "@/components/portal/camp-card";
 import CampResponseForm from "@/components/portal/camp-response-form";
 import { CAMP_EXTRA_STATUS_LABEL, campWindow, formatCampDate, goingSummary, mergeSavedEducators } from "@/lib/camp";
 import { loadEducatorsOnRecord, loadMyCamp } from "@/lib/camp-data";
+import { loadActingEntry } from "@/lib/acting-school-data";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
 import { getSessionUser } from "@/supabase/auth";
@@ -29,13 +30,8 @@ export default async function SchoolCamp() {
   if (!user) redirect("/portal/login");
   const supabase = await createClient();
 
-  const { data: reg, error: regError } = await supabase
-    .from("registrations")
-    .select("id, school_id, edition_year, schools(name)")
-    .order("edition_year", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (regError) throw new Error(`Could not load your registration: ${regError.message}`);
+  const { entry: reg, choices, error: regError } = await loadActingEntry();
+  if (regError) throw new Error(`Could not load your registration: ${regError}`);
 
   const { camp, error: campError } = reg ? await loadMyCamp(supabase, reg.id) : { camp: null, error: null };
   if (campError) throw new Error(`Could not load camp details: ${campError}`);
@@ -44,7 +40,13 @@ export default async function SchoolCamp() {
     return (
       <div className="space-y-6">
         <SectionHeading>ASC Camp</SectionHeading>
-        <EmptyState title="Camp invitations go to schools that qualify for the Grand Finale. Check back once results are out." />
+        <EmptyState
+          title={
+            choices.length > 1
+              ? `${reg?.schoolName ?? "This school"} has no camp invitation. Switch to your other school above to respond for it.`
+              : "Camp invitations go to schools that qualify for the Grand Finale. Check back once results are out."
+          }
+        />
       </div>
     );
   }
@@ -64,7 +66,7 @@ export default async function SchoolCamp() {
   const reps = (repRows ?? []) as { id: string; name: string; level: string | null }[];
 
   const { settings, confirmation } = camp;
-  const schoolName = (reg.schools as unknown as { name: string | null } | null)?.name ?? "your school";
+  const schoolName = reg.schoolName ?? "your school";
   const { record, other } = mergeSavedEducators(onRecord, confirmation?.educators);
   const win = campWindow(settings, confirmation);
 
