@@ -2,6 +2,8 @@
 // admins work from. The window and validation rules are also enforced by
 // submit_camp_response() in SQL — keep the two in step.
 import { tierRank } from "./resource-access";
+import { ageFromDob } from "./age";
+import { personNameKey } from "./person-identity";
 import type { CampConfirmation, CampSettings, CampStatus } from "@/supabase/types";
 
 export const CAMP_STATUS_LABEL: Record<CampStatus | "no_response", string> = {
@@ -439,6 +441,111 @@ export function campCsvMatrix(rows: CampRosterRow[]): string[][] {
       r.respondBy ?? "",
       r.respondedAt ?? "",
       r.adminNote ?? "",
+    ]),
+  ];
+}
+
+export type CampAttendingSchool = {
+  schoolName: string;
+  lga: string | null;
+  educators: CampEducator[];
+  details: Record<string, string> | null;
+  /** The school's active students in the edition — the team the camp emails name. */
+  students: { name: string; level: string | null }[];
+};
+
+export type CampAttendee = {
+  name: string;
+  gender: string;
+  level: string;
+  dob: string;
+  age: number | null;
+  schoolName: string;
+  lga: string;
+  guardianName: string;
+  guardianNumber: string;
+  educator: string;
+};
+
+/**
+ * Index into `formNames` for each roster name, or null. Exact names claim first;
+ * the rest take the unclaimed form name sharing the most words, at least two —
+ * rosters add a middle name or respell one ("Tolulopa" for "Tolulope"), while
+ * siblings share only a surname.
+ */
+export function matchRepSlots(rosterNames: string[], formNames: string[]): (number | null)[] {
+  const words = (name: string) => personNameKey(name).split(" ").filter(Boolean);
+  const out: (number | null)[] = rosterNames.map((name) => {
+    const i = formNames.findIndex((f) => personNameKey(f) === personNameKey(name));
+    return i < 0 ? null : i;
+  });
+  const claimed = new Set(out.filter((i) => i !== null));
+  rosterNames.forEach((name, r) => {
+    if (out[r] !== null) return;
+    const mine = new Set(words(name));
+    const scores = formNames.map((f, i) =>
+      claimed.has(i) ? 0 : words(f).filter((w) => mine.has(w)).length,
+    );
+    const best = Math.max(0, ...scores);
+    if (best >= 2 && scores.filter((s) => s === best).length === 1) {
+      out[r] = scores.indexOf(best);
+      claimed.add(out[r]);
+    }
+  });
+  return out;
+}
+
+/**
+ * One row per contestant at an attending school. Gender, DOB and guardian live
+ * only on the entry form, found by name because the slot order drifts; a school
+ * with no students provisioned falls back to the form's three reps.
+ */
+export function campAttendees(schools: CampAttendingSchool[], asOf: Date = new Date()): CampAttendee[] {
+  const out: CampAttendee[] = [];
+  for (const s of schools) {
+    const d = s.details ?? {};
+    const slots = [1, 2, 3].filter((n) => clean(d[`Student Rep ${n} Full Name`]));
+    const people = s.students.length
+      ? s.students
+      : slots.map((n) => ({ name: clean(d[`Student Rep ${n} Full Name`]), level: null }));
+    const slotOf = matchRepSlots(
+      people.map((p) => p.name),
+      slots.map((n) => d[`Student Rep ${n} Full Name`]),
+    ).map((i) => (i === null ? undefined : slots[i]));
+    people.forEach((p, i) => {
+      const n = slotOf[i];
+      const field = (f: string) => (n ? clean(d[`Student Rep ${n} ${f}`]) : "");
+      out.push({
+        name: p.name,
+        gender: field("Gender"),
+        level: p.level || field("Class"),
+        dob: field("DOB"),
+        age: ageFromDob(field("DOB"), asOf),
+        schoolName: s.schoolName,
+        lga: s.lga ?? "",
+        guardianName: field("Guardian Name"),
+        guardianNumber: field("Guardian Number"),
+        educator: goingSummary(s.educators),
+      });
+    });
+  }
+  return out.sort((a, b) => a.schoolName.localeCompare(b.schoolName) || a.name.localeCompare(b.name));
+}
+
+const ATTENDEE_HEADERS = [
+  "Name", "Gender", "Class", "Date of birth", "Age", "School", "LGA",
+  "Guardian name", "Guardian number", "Educator",
+];
+
+// Spreadsheets would drop the guardian number's leading zero without the ="…" guard.
+export const CAMP_ATTENDEE_PHONE_COLUMNS = new Set([ATTENDEE_HEADERS.indexOf("Guardian number")]);
+
+export function campAttendeesCsvMatrix(attendees: CampAttendee[]): (string | number)[][] {
+  return [
+    ATTENDEE_HEADERS,
+    ...attendees.map((a) => [
+      a.name, a.gender, a.level, a.dob, a.age ?? "", a.schoolName, a.lga,
+      a.guardianName, a.guardianNumber, a.educator,
     ]),
   ];
 }

@@ -1,7 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  CAMP_ATTENDEE_PHONE_COLUMNS,
+  campAttendees,
+  campAttendeesCsvMatrix,
   campCandidates,
+  matchRepSlots,
   campCounts,
   campCsvMatrix,
   campRosterRows,
@@ -440,5 +444,80 @@ describe("educatorsOnRecord duplicate matching", () => {
         ["Mr. Femi Testa", "principal"],
       ],
     );
+  });
+});
+
+describe("campAttendees", () => {
+  const DETAILS = {
+    "Student Rep 1 Full Name": "Tobi Adeyemi",
+    "Student Rep 1 Gender": "Male",
+    "Student Rep 1 Class": "SS2",
+    "Student Rep 1 DOB": "2010-11-02",
+    "Student Rep 1 Guardian Name": "Mr Adeyemi",
+    "Student Rep 1 Guardian Number": "08031112222",
+    "Student Rep 2 Full Name": "Kemi Bello",
+    "Student Rep 2 Gender": "Female",
+    "Student Rep 2 Class": "SS1",
+    "Student Rep 3 Full Name": "Ifeoma Okafor",
+    "Student Rep 3 Gender": "Female",
+  };
+  const school = (students: { name: string; level: string | null }[]) => ({
+    schoolName: "Riverbend Academy",
+    lga: "Ikenne",
+    educators: [TEACHER],
+    details: DETAILS,
+    students,
+  });
+  const ARRIVAL = new Date("2026-10-26T14:00:00+01:00");
+
+  it("takes gender, age and guardian from the entry form, matched by name not slot", () => {
+    const [ade] = campAttendees([school([{ name: "ADEYEMI, Tobi", level: "SS2" }])], ARRIVAL);
+    assert.equal(ade.gender, "Male");
+    assert.equal(ade.age, 15);
+    assert.equal(ade.guardianNumber, "08031112222");
+    assert.equal(ade.lga, "Ikenne");
+    assert.equal(ade.educator, "Mrs Ada Nwosu (0803 123 4567)");
+  });
+
+  it("lists the roster's students, so a rep swapped out on the form isn't listed", () => {
+    const rows = campAttendees([school([{ name: "Kemi Bello", level: null }, { name: "Zainab Musa", level: "SS3" }])]);
+    assert.deepEqual(
+      rows.map((r) => [r.name, r.gender, r.level]),
+      [
+        ["Kemi Bello", "Female", "SS1"],
+        ["Zainab Musa", "", "SS3"],
+      ],
+    );
+  });
+
+  it("falls back to the form's reps when no students are provisioned", () => {
+    const rows = campAttendees([school([])]);
+    assert.deepEqual(rows.map((r) => r.name), ["Ifeoma Okafor", "Kemi Bello", "Tobi Adeyemi"]);
+  });
+
+  it("guards the guardian number column so its leading zero survives", () => {
+    const [header, row] = campAttendeesCsvMatrix(campAttendees([school([{ name: "Tobi Adeyemi", level: null }])]));
+    const col = [...CAMP_ATTENDEE_PHONE_COLUMNS][0];
+    assert.equal(header[col], "Guardian number");
+    assert.equal(row[col], "08031112222");
+  });
+});
+
+describe("matchRepSlots", () => {
+  const FORM = ["OKAFOR CHIDI", "ADEYEMI TOLULOPE KEMI", "BELLO ADA"];
+
+  it("matches a roster name that adds a middle name or respells one", () => {
+    assert.deepEqual(
+      matchRepSlots(["Okafor Chidi Emeka", "Adeyemi Tolulopa Kemi", "Ada Bello"], FORM),
+      [0, 1, 2],
+    );
+  });
+
+  it("does not pair siblings who share only a surname", () => {
+    assert.deepEqual(matchRepSlots(["Okafor Ngozi"], FORM), [null]);
+  });
+
+  it("lets an exact name claim its slot before a near match can", () => {
+    assert.deepEqual(matchRepSlots(["Bello Ada Grace", "Bello Ada"], FORM), [null, 2]);
   });
 });

@@ -1,9 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/supabase/admin";
+import { chunk } from "@/lib/batch";
 import {
+  campAttendees,
   campCandidates,
   campRosterRows,
   educatorsOnRecord,
+  type CampAttendee,
   type CampEducator,
   type CampRosterRow,
 } from "@/lib/camp";
@@ -124,4 +127,62 @@ export async function loadCampRoster(
     entryStatus: r.status,
   }));
   return { settings: (settingsRes.data as CampSettings | null) ?? null, rows, candidates, error: null };
+}
+
+/** Every contestant at a school confirmed as attending — the camp's student list. */
+export async function loadCampAttendees(
+  supabase: SupabaseClient,
+  year: number,
+): Promise<{ attendees: CampAttendee[]; error: string | null }> {
+  const { settings, rows, error } = await loadCampRoster(supabase, year);
+  if (error) return { attendees: [], error };
+  const attending = rows.filter((r) => r.status === "attending");
+
+  const regPages = await Promise.all(
+    chunk(attending.map((r) => r.registrationId), 100).map((ids) =>
+      supabase.from("registrations").select("id, school_id, details").in("id", ids),
+    ),
+  );
+  const regError = regPages.find((p) => p.error)?.error;
+  if (regError) return { attendees: [], error: regError.message };
+  const regs = new Map(
+    regPages
+      .flatMap((p) => (p.data ?? []) as { id: string; school_id: string; details: Record<string, string> | null }[])
+      .map((r) => [r.id, r]),
+  );
+
+  const schoolIds = [...new Set([...regs.values()].map((r) => r.school_id).filter(Boolean))];
+  const studentPages = await Promise.all(
+    chunk(schoolIds, 100).map((ids) =>
+      supabase
+        .from("students")
+        .select("school_id, name, level")
+        .in("school_id", ids)
+        .eq("edition_year", year)
+        .is("deactivated_at", null),
+    ),
+  );
+  const studentError = studentPages.find((p) => p.error)?.error;
+  if (studentError) return { attendees: [], error: studentError.message };
+  const students = studentPages.flatMap(
+    (p) => (p.data ?? []) as { school_id: string; name: string; level: string | null }[],
+  );
+
+  const arrival = settings?.arrival_at ? new Date(settings.arrival_at) : undefined;
+  return {
+    attendees: campAttendees(
+      attending.map((r) => {
+        const reg = regs.get(r.registrationId);
+        return {
+          schoolName: r.schoolName,
+          lga: r.lga,
+          educators: r.educators,
+          details: reg?.details ?? null,
+          students: reg ? students.filter((s) => s.school_id === reg.school_id) : [],
+        };
+      }),
+      arrival,
+    ),
+    error: null,
+  };
 }

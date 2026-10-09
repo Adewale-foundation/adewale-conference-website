@@ -229,9 +229,14 @@ export default async function AdminCamp({
             ))}
           </div>
           {year ? (
-            <a href={`/portal/admin/participants/camp/export?edition=${year}`} className="text-xs uppercase tracking-[0.2em] text-primary hover:underline">
-              Export CSV ↓
-            </a>
+            <div className="flex flex-wrap gap-4">
+              <a href={`/portal/admin/participants/camp/attendees?edition=${year}`} className="text-xs uppercase tracking-[0.2em] text-primary hover:underline">
+                Export attendees ↓
+              </a>
+              <a href={`/portal/admin/participants/camp/export?edition=${year}`} className="text-xs uppercase tracking-[0.2em] text-primary hover:underline">
+                Export school responses ↓
+              </a>
+            </div>
           ) : null}
         </div>
 
