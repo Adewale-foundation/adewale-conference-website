@@ -41,7 +41,7 @@ jobs:
       - name: Install postgresql-client 17 (PGDG — dumps PG 15+ servers too)
         run: |
           sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /etc/apt/trusted.gpg.d/pgdg.asc > /dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
 
