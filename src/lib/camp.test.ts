@@ -22,7 +22,10 @@ import {
   lagosInputToIso,
   isCampEligible,
   validateCampResponse,
+  type CampAttendee,
+  type CampAttendingSchool,
   type CampEducator,
+  type CampExtraStatus,
   type CampResponseInput,
 } from "./camp";
 import { canAccess, tierRank } from "./resource-access";
@@ -461,17 +464,25 @@ describe("campAttendees", () => {
     "Student Rep 3 Full Name": "Ifeoma Okafor",
     "Student Rep 3 Gender": "Female",
   };
-  const school = (students: { name: string; level: string | null }[]) => ({
+  const school = (
+    students: { name: string; level: string | null }[],
+    extra: CampAttendingSchool["extra"] = null,
+  ): CampAttendingSchool => ({
     schoolName: "Riverbend Academy",
     lga: "Ikenne",
-    educators: [TEACHER],
+    educators: [TEACHER, PRINCIPAL],
+    extra,
     details: DETAILS,
     students,
   });
   const ARRIVAL = new Date("2026-10-26T14:00:00+01:00");
+  const studentsOf = (rows: CampAttendee[]) => rows.filter((r) => r.type === "Student");
+  const extra = (status: CampExtraStatus) => ({
+    name: "Mr Bayo Lawal", phone: "0807 000 1111", reason: "Large team", status, adminNote: null,
+  });
 
   it("takes gender, age and guardian from the entry form, matched by name not slot", () => {
-    const [ade] = campAttendees([school([{ name: "ADEYEMI, Tobi", level: "SS2" }])], ARRIVAL);
+    const [ade] = studentsOf(campAttendees([school([{ name: "ADEYEMI, Tobi", level: "SS2" }])], ARRIVAL));
     assert.equal(ade.gender, "Male");
     assert.equal(ade.age, 15);
     assert.equal(ade.guardianNumber, "08031112222");
@@ -480,7 +491,7 @@ describe("campAttendees", () => {
   });
 
   it("lists the roster's students, so a rep swapped out on the form isn't listed", () => {
-    const rows = campAttendees([school([{ name: "Kemi Bello", level: null }, { name: "Zainab Musa", level: "SS3" }])]);
+    const rows = studentsOf(campAttendees([school([{ name: "Kemi Bello", level: null }, { name: "Zainab Musa", level: "SS3" }])]));
     assert.deepEqual(
       rows.map((r) => [r.name, r.gender, r.level]),
       [
@@ -491,15 +502,38 @@ describe("campAttendees", () => {
   });
 
   it("falls back to the form's reps when no students are provisioned", () => {
-    const rows = campAttendees([school([])]);
+    const rows = studentsOf(campAttendees([school([])]));
     assert.deepEqual(rows.map((r) => r.name), ["Ifeoma Okafor", "Kemi Bello", "Tobi Adeyemi"]);
   });
 
-  it("guards the guardian number column so its leading zero survives", () => {
-    const [header, row] = campAttendeesCsvMatrix(campAttendees([school([{ name: "Tobi Adeyemi", level: null }])]));
-    const col = [...CAMP_ATTENDEE_PHONE_COLUMNS][0];
-    assert.equal(header[col], "Guardian number");
-    assert.equal(row[col], "08031112222");
+  it("lists the educator going as a teacher ahead of the students, not those staying behind", () => {
+    const rows = campAttendees([school([{ name: "Tobi Adeyemi", level: null }])]);
+    assert.deepEqual(
+      rows.map((r) => [r.type, r.name, r.role, r.phone, r.schoolName]),
+      [
+        ["Teacher", "Mrs Ada Nwosu", "Teacher", "0803 123 4567", "Riverbend Academy"],
+        ["Student", "Tobi Adeyemi", "", "", "Riverbend Academy"],
+      ],
+    );
+  });
+
+  it("lists an approved or pending second educator with their status, but not a declined one", () => {
+    const teachers = (status: CampExtraStatus) =>
+      campAttendees([school([], extra(status))]).filter((r) => r.type === "Teacher").map((r) => [r.name, r.role]);
+    assert.deepEqual(teachers("approved")[1], ["Mr Bayo Lawal", "Second educator — Approved"]);
+    assert.deepEqual(teachers("pending")[1], ["Mr Bayo Lawal", "Second educator — Awaiting approval"]);
+    assert.deepEqual(teachers("declined"), [["Mrs Ada Nwosu", "Teacher"]]);
+  });
+
+  it("guards both phone columns so their leading zeros survive", () => {
+    const [header, teacher, student] = campAttendeesCsvMatrix(
+      campAttendees([school([{ name: "Tobi Adeyemi", level: null }])]),
+    );
+    const [phone, guardian] = [...CAMP_ATTENDEE_PHONE_COLUMNS];
+    assert.equal(header[phone], "Phone");
+    assert.equal(teacher[phone], "0803 123 4567");
+    assert.equal(header[guardian], "Guardian number");
+    assert.equal(student[guardian], "08031112222");
   });
 });
 

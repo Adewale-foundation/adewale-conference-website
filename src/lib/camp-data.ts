@@ -177,6 +177,7 @@ export async function loadCampAttendees(
           schoolName: r.schoolName,
           lga: r.lga,
           educators: r.educators,
+          extra: r.extra,
           details: reg?.details ?? null,
           students: reg ? students.filter((s) => s.school_id === reg.school_id) : [],
         };

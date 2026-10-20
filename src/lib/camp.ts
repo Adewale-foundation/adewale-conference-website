@@ -449,13 +449,17 @@ export type CampAttendingSchool = {
   schoolName: string;
   lga: string | null;
   educators: CampEducator[];
+  extra: CampRosterRow["extra"];
   details: Record<string, string> | null;
   /** The school's active students in the edition — the team the camp emails name. */
   students: { name: string; level: string | null }[];
 };
 
 export type CampAttendee = {
+  type: "Student" | "Teacher";
   name: string;
+  role: string;
+  phone: string;
   gender: string;
   level: string;
   dob: string;
@@ -496,13 +500,27 @@ export function matchRepSlots(rosterNames: string[], formNames: string[]): (numb
 }
 
 /**
- * One row per contestant at an attending school. Gender, DOB and guardian live
- * only on the entry form, found by name because the slot order drifts; a school
- * with no students provisioned falls back to the form's three reps.
+ * One row per contestant and per educator going to camp from an attending school.
+ * Gender, DOB and guardian live only on the entry form, found by name because the
+ * slot order drifts; a school with no students provisioned falls back to the
+ * form's three reps. A pending second educator is listed so admins can plan for them.
  */
 export function campAttendees(schools: CampAttendingSchool[], asOf: Date = new Date()): CampAttendee[] {
   const out: CampAttendee[] = [];
   for (const s of schools) {
+    const teacher = (name: string, phone: string | null, role: string): CampAttendee => ({
+      type: "Teacher", name, role, phone: phone ?? "",
+      gender: "", level: "", dob: "", age: null,
+      schoolName: s.schoolName, lga: s.lga ?? "",
+      guardianName: "", guardianNumber: "", educator: "",
+    });
+    for (const e of s.educators) {
+      if (e.going) out.push(teacher(e.name, e.phone, CAMP_EDUCATOR_ROLE_LABEL[e.role]));
+    }
+    if (s.extra && s.extra.status !== "declined") {
+      out.push(teacher(s.extra.name, s.extra.phone, `Second educator — ${CAMP_EXTRA_STATUS_LABEL[s.extra.status]}`));
+    }
+
     const d = s.details ?? {};
     const slots = [1, 2, 3].filter((n) => clean(d[`Student Rep ${n} Full Name`]));
     const people = s.students.length
@@ -516,7 +534,10 @@ export function campAttendees(schools: CampAttendingSchool[], asOf: Date = new D
       const n = slotOf[i];
       const field = (f: string) => (n ? clean(d[`Student Rep ${n} ${f}`]) : "");
       out.push({
+        type: "Student",
         name: p.name,
+        role: "",
+        phone: "",
         gender: field("Gender"),
         level: p.level || field("Class"),
         dob: field("DOB"),
@@ -529,22 +550,31 @@ export function campAttendees(schools: CampAttendingSchool[], asOf: Date = new D
       });
     });
   }
-  return out.sort((a, b) => a.schoolName.localeCompare(b.schoolName) || a.name.localeCompare(b.name));
+  // Teachers keep insertion order (the one going, then the second educator) ahead of the students.
+  return out.sort(
+    (a, b) =>
+      a.schoolName.localeCompare(b.schoolName) ||
+      (a.type === b.type ? 0 : a.type === "Teacher" ? -1 : 1) ||
+      (a.type === "Student" ? a.name.localeCompare(b.name) : 0),
+  );
 }
 
 const ATTENDEE_HEADERS = [
-  "Name", "Gender", "Class", "Date of birth", "Age", "School", "LGA",
+  "Type", "Name", "Role", "Phone", "Gender", "Class", "Date of birth", "Age", "School", "LGA",
   "Guardian name", "Guardian number", "Educator",
 ];
 
-// Spreadsheets would drop the guardian number's leading zero without the ="…" guard.
-export const CAMP_ATTENDEE_PHONE_COLUMNS = new Set([ATTENDEE_HEADERS.indexOf("Guardian number")]);
+// Spreadsheets would drop a phone's leading zero without the ="…" guard.
+export const CAMP_ATTENDEE_PHONE_COLUMNS = new Set([
+  ATTENDEE_HEADERS.indexOf("Phone"),
+  ATTENDEE_HEADERS.indexOf("Guardian number"),
+]);
 
 export function campAttendeesCsvMatrix(attendees: CampAttendee[]): (string | number)[][] {
   return [
     ATTENDEE_HEADERS,
     ...attendees.map((a) => [
-      a.name, a.gender, a.level, a.dob, a.age ?? "", a.schoolName, a.lga,
+      a.type, a.name, a.role, a.phone, a.gender, a.level, a.dob, a.age ?? "", a.schoolName, a.lga,
       a.guardianName, a.guardianNumber, a.educator,
     ]),
   ];
