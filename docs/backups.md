@@ -25,9 +25,12 @@ button:
    existing dumps (they contain the Supabase `auth` schema) nor destroy them.
    `AbortMultipartUpload` is needed because `aws s3 cp` goes multipart above
    8 MB and a dump crosses that. The role's trust policy pins the subject with
-   `StringEquals` on `repo:orisngdev/adewale-conference-website:ref:refs/heads/main`
+   `StringEquals` on `repo:Adewale-foundation/adewale-conference-website:ref:refs/heads/main`
    — this repo is public, so a `StringLike` pattern or any subject admitting
-   `pull_request` would let a fork's PR workflow assume the role.
+   `pull_request` would let a fork's PR workflow assume the role. The pin is
+   exact and case-sensitive: renaming the repo or moving it between orgs breaks
+   the nightly run with `Not authorized to perform sts:AssumeRoleWithWebIdentity`
+   until the subject is updated to match.
 2. Add a **lifecycle rule** on the `adewale-portal/` prefix — e.g. expire objects
    after 30 days — so retention is automatic.
 3. Set the repo secrets (Settings → Secrets and variables → Actions):

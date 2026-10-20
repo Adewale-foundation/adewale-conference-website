@@ -36,7 +36,7 @@ Cost detail by tool (approximate — verify current pricing when you reach each 
 ### Hosting strategy
 
 - **New platform** is built on a separate branch (`platform-v2`) and deployed to **Netlify (free)**.
-  Vercel's Hobby plan refuses **org-owned** repos (`orisngdev/...`), so its only option is Pro
+  Vercel's Hobby plan refuses **org-owned** repos (`Adewale-foundation/...`), so its only option is Pro
   (~$20/mo); Netlify's free tier allows org repos and commercial use, runs our Node-runtime code
   (server routes, `fs`-based email templates) with minimal change, and keeps the new build at **$0**.
 - **Production** (current single-page site) stays on **Vercel, unchanged**, until we're ready to cut over.
