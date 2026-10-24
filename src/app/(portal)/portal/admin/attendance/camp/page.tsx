@@ -7,6 +7,10 @@ import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import ActionForm from "@/components/portal/action-form";
 import { SubmitButton } from "@/components/portal/submit-button";
 import AttendanceLink from "@/components/portal/attendance-link";
+import AttendanceTabs from "@/components/portal/attendance-tabs";
+import CentreLeadsPanel from "@/components/portal/centre-leads-panel";
+import MarkButtons from "@/components/portal/mark-buttons";
+import { CENTRE_LEAD_ROLE_LABELS, type CentreLead, type ExamCentre } from "@/supabase/types";
 import { attendanceCounts, latestEventByStudent, markerName, type AttendanceEvent } from "@/lib/attendance";
 import { campDayFor, campDays, campRegister, formatCampDay } from "@/lib/camp-attendance";
 import { loadCampMarks, loadCampPeople } from "@/lib/camp-attendance-data";
@@ -46,8 +50,9 @@ export default async function CampAttendance({
   if (!year || !settings || !day) {
     return (
       <>
-        <PortalHeader title="Camp attendance" />
+        <PortalHeader title="Attendance" />
         <PortalBody>
+          <AttendanceTabs active="camp" />
           <EmptyState title="Camp has no dates yet">
             Set the arrival and departure times on the{" "}
             <Link href="/portal/admin/participants/camp" className="text-gold-ink hover:underline">
@@ -65,7 +70,7 @@ export default async function CampAttendance({
       loadCampMarks(supabase, year, day),
       supabase
         .from("exam_centres")
-        .select("id, name, town")
+        .select("id, edition_year, name, town, legacy_zone, is_active, kind")
         .eq("edition_year", year)
         .eq("kind", "camp")
         .maybeSingle(),
@@ -78,14 +83,19 @@ export default async function CampAttendance({
   if (centreError) throw new Error(centreError.message);
   if (eventsError) throw new Error(eventsError.message);
 
-  const { count: staffCount, error: staffError } = centre
+  const { data: staffRows, error: staffError } = centre
     ? await supabase
         .from("centre_leads")
-        .select("id", { count: "exact", head: true })
+        .select(
+          "id, edition_year, centre_id, name, email, phone, role, is_active," +
+            " last_signed_in_at, last_emailed_at",
+        )
         .eq("centre_id", centre.id)
-        .eq("is_active", true)
-    : { count: 0, error: null };
+        .order("name")
+    : { data: [], error: null };
   if (staffError) throw new Error(staffError.message);
+  const staff = (staffRows ?? []) as unknown as CentreLead[];
+  const staffCount = staff.filter((s) => s.is_active).length;
 
   const register = campRegister(people, marks);
   const latestEvent = latestEventByStudent((eventRows ?? []) as unknown as AttendanceEvent[]);
@@ -96,15 +106,13 @@ export default async function CampAttendance({
 
   return (
     <>
-      <PortalHeader title="Camp attendance" subtitle={`${settings.title} · ${formatCampDay(day, days)}`} />
+      <PortalHeader title="Attendance" subtitle={`${settings.title} · ${formatCampDay(day, days)}`} />
       <PortalBody>
-        <Link href="/portal/admin/attendance" className="text-sm text-gold-ink hover:underline">
-          ← Back to attendance
-        </Link>
+        <AttendanceTabs active="camp" />
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <SectionHeading>Camp staff</SectionHeading>
+            <SectionHeading>Camp register</SectionHeading>
             {canManage ? null : <ReadOnlyBadge />}
           </div>
           <Card className="space-y-3 p-4">
@@ -123,11 +131,11 @@ export default async function CampAttendance({
             </p>
             <p className={`text-sm ${staffCount ? "text-muted-foreground" : "font-bold text-destructive"}`}>
               {staffCount
-                ? `${staffCount} staff registered for the camp.`
-                : "Nobody is registered to mark the camp yet."}{" "}
-              <Link href="/portal/admin/attendance?tab=staff" className="font-bold text-gold-ink hover:underline">
-                {staffCount ? "Manage staff →" : "Add camp staff →"}
-              </Link>
+                ? `${staffCount} staff can sign in to mark the camp.`
+                : "Nobody can mark the camp yet."}{" "}
+              <a href="#staff" className="font-bold text-gold-ink hover:underline">
+                {staffCount ? "Manage camp staff ↓" : "Add camp staff ↓"}
+              </a>
             </p>
             {open ? <AttendanceLink url={`${SITE_URL}/attendance`} /> : null}
             {canManage ? (
@@ -141,6 +149,23 @@ export default async function CampAttendance({
             ) : null}
           </Card>
         </section>
+
+        {centre ? (
+          <section id="staff" className="space-y-3 scroll-mt-6">
+            <SectionHeading>Camp staff ({staffCount})</SectionHeading>
+            <CentreLeadsPanel
+              centres={[centre as ExamCentre]}
+              leads={staff}
+              canManage={canManage}
+              editionYear={year}
+              roleLabels={CENTRE_LEAD_ROLE_LABELS}
+            />
+          </section>
+        ) : (
+          <EmptyState title="No camp venue yet">
+            Open camp attendance once and the camp appears here, ready for staff.
+          </EmptyState>
+        )}
 
         <section className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -210,27 +235,11 @@ export default async function CampAttendance({
                       )}
                     </div>
                     {canManage ? (
-                      <ActionForm action={correctCampMark} className="flex gap-1.5">
-                        <input type="hidden" name="edition_year" value={year} />
-                        <input type="hidden" name="day" value={day} />
-                        <input type="hidden" name="person_key" value={p.key} />
-                        <button
-                          type="submit"
-                          name="status"
-                          value="present"
-                          className="min-h-9 cursor-pointer rounded-md border border-foreground/20 px-2 text-xs font-bold"
-                        >
-                          Present
-                        </button>
-                        <button
-                          type="submit"
-                          name="status"
-                          value="absent"
-                          className="min-h-9 cursor-pointer rounded-md border border-foreground/20 px-2 text-xs font-bold"
-                        >
-                          Absent
-                        </button>
-                      </ActionForm>
+                      <MarkButtons
+                        action={correctCampMark}
+                        fields={{ edition_year: year, day, person_key: p.key }}
+                        state={p.state}
+                      />
                     ) : null}
                   </div>
                 );

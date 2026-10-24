@@ -14,6 +14,7 @@ import {
 } from "@/components/portal/ui";
 import ActionForm from "@/components/portal/action-form";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import MarkButtons from "@/components/portal/mark-buttons";
 import { Mail } from "lucide-react";
 import {
   attendanceCounts,
@@ -231,27 +232,11 @@ export default async function CentreAttendance({
                     )}
                   </div>
                   {canManage ? (
-                    <ActionForm action={correctMark} className="flex gap-1.5">
-                      <input type="hidden" name="exam_id" value={exam.id} />
-                      <input type="hidden" name="student_id" value={entry.studentId} />
-                      <input type="hidden" name="centre_id" value={venue.id} />
-                      <button
-                        type="submit"
-                        name="status"
-                        value="present"
-                        className="min-h-9 cursor-pointer rounded-md border border-foreground/20 px-2 text-xs font-bold"
-                      >
-                        Present
-                      </button>
-                      <button
-                        type="submit"
-                        name="status"
-                        value="absent"
-                        className="min-h-9 cursor-pointer rounded-md border border-foreground/20 px-2 text-xs font-bold"
-                      >
-                        Absent
-                      </button>
-                    </ActionForm>
+                    <MarkButtons
+                      action={correctMark}
+                      fields={{ exam_id: exam.id, student_id: entry.studentId, centre_id: venue.id }}
+                      state={entry.state}
+                    />
                   ) : null}
                 </div>
               );

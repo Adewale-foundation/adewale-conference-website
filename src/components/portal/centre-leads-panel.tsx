@@ -61,7 +61,13 @@ export default function CentreLeadsPanel({
             <ActionForm action={addLeadsBulk} className="space-y-2">
               <input type="hidden" name="edition_year" value={editionYear} />
               <div className="grid gap-2 sm:grid-cols-2">
-                <select name="centre_id" defaultValue="" required className={field}>
+                <select
+                  name="centre_id"
+                  // A panel scoped to one venue (the camp) has nothing to choose.
+                  defaultValue={centres.length === 1 ? centres[0].id : ""}
+                  required
+                  className={field}
+                >
                   <option value="" disabled>
                     Centre…
                   </option>
@@ -94,7 +100,13 @@ export default function CentreLeadsPanel({
           ) : (
             <ActionForm action={addLead} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <input type="hidden" name="edition_year" value={editionYear} />
-              <select name="centre_id" defaultValue="" required className={field}>
+              <select
+                  name="centre_id"
+                  // A panel scoped to one venue (the camp) has nothing to choose.
+                  defaultValue={centres.length === 1 ? centres[0].id : ""}
+                  required
+                  className={field}
+                >
                 <option value="" disabled>
                   Centre…
                 </option>

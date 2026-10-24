@@ -21,6 +21,7 @@ const denied: ActionResult = { ok: false, error: "You have read-only access to p
 
 function refresh() {
   revalidatePath("/portal/admin/attendance");
+  revalidatePath("/portal/admin/attendance/camp");
   revalidatePath("/attendance/roster");
 }
 

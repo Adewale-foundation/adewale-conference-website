@@ -14,6 +14,7 @@ import SettingsTabs from "@/components/portal/settings-tabs";
 import { CENTRE_LEAD_ROLE_LABELS, type CentreLead, type ExamCentre } from "@/supabase/types";
 import { setAttendanceOpen } from "./actions";
 import CentreLeadsPanel from "@/components/portal/centre-leads-panel";
+import AttendanceTabs from "@/components/portal/attendance-tabs";
 import UnallocatedSchools from "@/components/portal/unallocated-schools";
 
 export const metadata = pageMetadata(
@@ -74,11 +75,10 @@ export default async function AdminAttendance() {
         .order("name"),
     ]);
 
-  // Every venue staff sign in to, camp included, for the staff tab; turnout and
-  // allocation are the zonal venues only.
-  const allCentres = (centreRows ?? []) as ExamCentre[];
-  const centres = allCentres.filter((c) => c.kind !== "camp");
-  const leads = (leadRows ?? []) as unknown as CentreLead[];
+  // Camp staff are managed on the camp page.
+  const campIds = new Set(((centreRows ?? []) as ExamCentre[]).filter((c) => c.kind === "camp").map((c) => c.id));
+  const centres = ((centreRows ?? []) as ExamCentre[]).filter((c) => !campIds.has(c.id));
+  const leads = ((leadRows ?? []) as unknown as CentreLead[]).filter((l) => !campIds.has(l.centre_id));
 
   const sitting = open ? await loadSitting(open) : null;
   const entries = sitting?.entries ?? [];
@@ -87,8 +87,6 @@ export default async function AdminAttendance() {
   const activeLeads = leads.filter((l) => l.is_active);
   const staffedCentreIds = new Set(activeLeads.map((l) => l.centre_id));
   const unstaffed = centres.filter((c) => c.is_active && !staffedCentreIds.has(c.id));
-  const campCentre = allCentres.find((c) => c.kind === "camp");
-  const campStaff = campCentre ? activeLeads.filter((l) => l.centre_id === campCentre.id).length : 0;
 
   const turnoutTab = (
     <section className="space-y-3">
@@ -205,16 +203,7 @@ export default async function AdminAttendance() {
           </Card>
         ) : null}
 
-        <Link
-          href="/portal/admin/attendance/camp"
-          className="block border border-foreground/10 bg-card px-4 py-3 text-sm hover:bg-foreground/5"
-        >
-          <span className="font-bold text-foreground">Camp register →</span>{" "}
-          <span className="text-muted-foreground">
-            Students and educators at camp, marked day by day by camp staff ·{" "}
-            {campStaff} staff registered
-          </span>
-        </Link>
+        <AttendanceTabs active="zonal" />
 
         {/* ── the sitting ───────────────────────────────────────────────── */}
         <section className="space-y-3">
@@ -278,7 +267,7 @@ export default async function AdminAttendance() {
               slug: "staff",
               content: (
                 <CentreLeadsPanel
-                  centres={allCentres}
+                  centres={centres}
                   leads={leads}
                   canManage={canManage}
                   editionYear={editionYear}
