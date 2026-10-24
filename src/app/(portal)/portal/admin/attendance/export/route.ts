@@ -4,7 +4,7 @@ import { canViewModule } from "@/supabase/auth";
 import { toCsv } from "@/lib/csv";
 import { buildXlsx } from "@/lib/xlsx";
 import { latestEventByStudent, markerName, type AttendanceEvent } from "@/lib/attendance";
-import { loadSitting, openAttendanceExam } from "@/lib/attendance-data";
+import { loadSitting, registerExam } from "@/lib/attendance-data";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  const exam = await openAttendanceExam();
-  if (!exam) return new NextResponse("No sitting is open for attendance.", { status: 404 });
+  const exam = await registerExam(request.nextUrl.searchParams.get("exam"));
+  if (!exam) return new NextResponse("No sitting has a register yet.", { status: 404 });
 
   const format = request.nextUrl.searchParams.get("format") === "xlsx" ? "xlsx" : "csv";
   const supabase = await createClient();

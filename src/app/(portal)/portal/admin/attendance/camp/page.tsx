@@ -31,7 +31,7 @@ import {
   formatCampDay,
   groupBySchool,
 } from "@/lib/camp-attendance";
-import SchoolFilter from "@/components/portal/school-filter";
+import ParamSelect from "@/components/portal/param-select";
 import { loadCampMarks, loadCampPeople } from "@/lib/camp-attendance-data";
 import { SITE_URL } from "@/lib/site";
 import { correctCampMark, setCampAttendanceOpen } from "./actions";
@@ -244,12 +244,14 @@ export default async function CampAttendance({
             </EmptyState>
           ) : (
             <>
-              <SchoolFilter
+              <ParamSelect
+                param="school"
+                label="Filter by school"
                 value={school}
-                schools={allGroups.map((g) => ({
-                  registrationId: g.registrationId,
-                  schoolName: g.schoolName,
-                  count: g.rows.length,
+                allLabel={`All schools (${allGroups.length})`}
+                options={allGroups.map((g) => ({
+                  value: g.registrationId,
+                  label: `${g.schoolName} (${g.rows.length})`,
                 }))}
               />
               {groups.map((group) => {

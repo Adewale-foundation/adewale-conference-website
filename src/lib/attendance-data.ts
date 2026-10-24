@@ -40,7 +40,37 @@ export async function openAttendanceExam(): Promise<OpenExam | null> {
   return (data as OpenExam) ?? null;
 }
 
-const CENTRE_COLUMNS = "id, edition_year, name, town, legacy_zone, is_active, kind";
+/**
+ * The sitting an admin is looking at: the one asked for, else the open one,
+ * else the last one anybody marked — so closing attendance never hides a register.
+ */
+export async function registerExam(examId?: string | null): Promise<OpenExam | null> {
+  const supabase = db();
+  const byId = async (id: string) => {
+    const { data, error } = await supabase
+      .from("paper_exams")
+      .select("id, title, edition_year, stage")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return (data as OpenExam) ?? null;
+  };
+
+  if (examId) return byId(examId);
+  const open = await openAttendanceExam();
+  if (open) return open;
+
+  const { data: last, error } = await supabase
+    .from("paper_exam_attendance")
+    .select("exam_id")
+    .order("marked_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return last ? byId(last.exam_id) : null;
+}
+
+const CENTRE_COLUMNS ="id, edition_year, name, town, legacy_zone, is_active, kind";
 
 /** The zonal venues only. The camp is a centre too, but no school is allocated
  *  to it, and resolveCentreId's town rung must never match it. */

@@ -7,7 +7,8 @@ import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import ActionForm from "@/components/portal/action-form";
 import { SubmitButton } from "@/components/portal/submit-button";
 import { attendanceCounts } from "@/lib/attendance";
-import { loadSitting, openAttendanceExam } from "@/lib/attendance-data";
+import { loadSitting, openAttendanceExam, registerExam } from "@/lib/attendance-data";
+import ParamSelect from "@/components/portal/param-select";
 import { SITE_URL } from "@/lib/site";
 import AttendanceLink from "@/components/portal/attendance-link";
 import SettingsTabs from "@/components/portal/settings-tabs";
@@ -23,15 +24,20 @@ export const metadata = pageMetadata(
 );
 export const dynamic = "force-dynamic";
 
-export default async function AdminAttendance() {
+export default async function AdminAttendance({
+  searchParams,
+}: {
+  searchParams: Promise<{ exam?: string }>;
+}) {
   await requireModuleView("participants");
+  const { exam: examParam } = await searchParams;
   const [canManage, canOpenRegistrations] = await Promise.all([
     canManageModule("participants"),
     canViewModule("registrations"),
   ]);
   const supabase = await createClient();
 
-  const [{ data: exams, error: examsError }, open] = await Promise.all([
+  const [{ data: exams, error: examsError }, open, viewing] = await Promise.all([
     supabase
       .from("paper_exams")
       .select("id, title, edition_year, stage, attendance_open")
@@ -39,6 +45,7 @@ export default async function AdminAttendance() {
       .order("created_at", { ascending: false })
       .limit(20),
     openAttendanceExam(),
+    registerExam(examParam),
   ]);
   if (examsError) {
     return (
@@ -55,7 +62,7 @@ export default async function AdminAttendance() {
 
   // `??` does not catch NaN, so a missing edition has to be tested for, not
   // defaulted around — otherwise both queries below filter on edition_year=NaN.
-  const candidateYear = open?.edition_year ?? Number(exams?.[0]?.edition_year);
+  const candidateYear = viewing?.edition_year ?? open?.edition_year ?? Number(exams?.[0]?.edition_year);
   const editionYear = Number.isFinite(candidateYear) ? candidateYear : new Date().getFullYear();
 
   const [{ data: centreRows, error: centresError }, { data: leadRows, error: leadsError }] =
@@ -80,7 +87,8 @@ export default async function AdminAttendance() {
   const centres = ((centreRows ?? []) as ExamCentre[]).filter((c) => !campIds.has(c.id));
   const leads = ((leadRows ?? []) as unknown as CentreLead[]).filter((l) => !campIds.has(l.centre_id));
 
-  const sitting = open ? await loadSitting(open) : null;
+  const sitting = viewing ? await loadSitting(viewing) : null;
+  const examQuery = viewing ? `?exam=${viewing.id}` : "";
   const entries = sitting?.entries ?? [];
   const overall = attendanceCounts(entries.filter((e) => e.centreId !== null));
 
@@ -113,16 +121,34 @@ export default async function AdminAttendance() {
         </Card>
       ) : null}
 
-      {open ? (
+      {viewing ? (
         <>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <SectionHeading>Turnout</SectionHeading>
             <Link
-              href="/portal/admin/attendance/export"
+              href={`/portal/admin/attendance/export${examQuery}`}
               className="text-xs font-bold text-gold-ink hover:underline"
             >
               Download CSV
             </Link>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <ParamSelect
+              param="exam"
+              label="Which sitting"
+              value={viewing.id}
+              options={(exams ?? []).map((e) => ({
+                value: e.id,
+                label: `${e.title} · ${e.edition_year}${e.attendance_open ? " (open)" : ""}`,
+              }))}
+            />
+            {viewing.id === open?.id ? null : (
+              <p className="text-xs text-muted-foreground">
+                Attendance is closed for this sitting, so this is its final register. Corrections
+                below still save.
+              </p>
+            )}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-4">
@@ -139,7 +165,7 @@ export default async function AdminAttendance() {
               return (
                 <Link
                   key={centre.id}
-                  href={`/portal/admin/attendance/${centre.id}`}
+                  href={`/portal/admin/attendance/${centre.id}${examQuery}`}
                   className="grid gap-1 px-4 py-3 hover:bg-foreground/5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
                 >
                   <div className="min-w-0">
@@ -177,14 +203,14 @@ export default async function AdminAttendance() {
             entries={entries}
             centres={centres}
             canManage={canManage}
-            editionYear={open.edition_year}
+            editionYear={viewing.edition_year}
             canOpenRegistrations={canOpenRegistrations}
           />
         </>
       ) : (
-        <EmptyState title="No sitting is open">
+        <EmptyState title="No register yet">
           Open attendance on the exam being sat, above, and turnout appears here as centre staff
-          mark their registers.
+          mark their registers. It stays here after attendance closes.
         </EmptyState>
       )}
     </section>

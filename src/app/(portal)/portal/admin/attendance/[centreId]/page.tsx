@@ -22,7 +22,7 @@ import {
   markerName,
   type AttendanceEvent,
 } from "@/lib/attendance";
-import { loadSitting, openAttendanceExam } from "@/lib/attendance-data";
+import { loadSitting, registerExam } from "@/lib/attendance-data";
 import { CENTRE_LEAD_ROLE_LABELS, type CentreLead, type ExamCentre } from "@/supabase/types";
 import { correctMark, emailLead } from "../actions";
 
@@ -31,8 +31,10 @@ export const dynamic = "force-dynamic";
 
 export default async function CentreAttendance({
   params,
+  searchParams,
 }: {
   params: Promise<{ centreId: string }>;
+  searchParams: Promise<{ exam?: string }>;
 }) {
   await requireModuleView("participants");
   const [canManage, canOpenRegistrations] = await Promise.all([
@@ -40,6 +42,7 @@ export default async function CentreAttendance({
     canViewModule("registrations"),
   ]);
   const { centreId } = await params;
+  const { exam: examParam } = await searchParams;
   const supabase = await createClient();
 
   const { data: centre, error: centreError } = await supabase
@@ -126,17 +129,18 @@ export default async function CentreAttendance({
     </section>
   );
 
-  const exam = await openAttendanceExam();
+  const exam = await registerExam(examParam);
   if (!exam) {
     return (
       <>
         <PortalHeader title={`${venue.name}, ${venue.town}`} />
         <PortalBody>
           {staffSection}
-          <EmptyState title="No sitting is open">
-            Open attendance on the exam being sat before this page can show a register.
+          <EmptyState title="No register yet">
+            Nobody has marked a sitting yet. Open attendance on the exam being sat, and this page
+            shows its register from then on.
           </EmptyState>
-          <Link href="/portal/admin/attendance" className="text-sm text-gold-ink hover:underline">
+          <Link href={`/portal/admin/attendance${examParam ? `?exam=${examParam}` : ""}`} className="text-sm text-gold-ink hover:underline">
             ← Back to attendance
           </Link>
         </PortalBody>
@@ -167,7 +171,7 @@ export default async function CentreAttendance({
         subtitle={`${exam.title} · ${counts.total} candidates allocated`}
       />
       <PortalBody>
-        <Link href="/portal/admin/attendance" className="text-sm text-gold-ink hover:underline">
+        <Link href={`/portal/admin/attendance${examParam ? `?exam=${examParam}` : ""}`} className="text-sm text-gold-ink hover:underline">
           ← Back to attendance
         </Link>
 
