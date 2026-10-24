@@ -143,6 +143,7 @@ export default async function AdminParticipants({
         .from("exam_centres")
         .select("id, name, town, legacy_zone")
         .eq("edition_year", activeYear)
+        .eq("kind", "exam")
         .eq("is_active", true)
     : { data: [], error: null };
   if (venuesError) console.error("exam centres not loaded:", venuesError.message);

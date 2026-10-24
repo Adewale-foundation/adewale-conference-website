@@ -230,6 +230,9 @@ export default async function AdminCamp({
           </div>
           {year ? (
             <div className="flex flex-wrap gap-4">
+              <Link href={`/portal/admin/attendance/camp?edition=${year}`} className="text-xs uppercase tracking-[0.2em] text-primary hover:underline">
+                Camp attendance →
+              </Link>
               <a href={`/portal/admin/participants/camp/attendees?edition=${year}`} className="text-xs uppercase tracking-[0.2em] text-primary hover:underline">
                 Export attendees ↓
               </a>

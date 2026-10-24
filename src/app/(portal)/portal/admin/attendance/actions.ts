@@ -6,6 +6,7 @@ import { requireManage } from "@/supabase/auth";
 import { parseCsvGrid } from "@/lib/csv";
 import { markAttendance } from "@/lib/attendance-data";
 import { buildCentreStaffEmail, isUndeliverableAddress, sendEmailSafely } from "@/lib/email";
+import { formatCampDate } from "@/lib/camp";
 import {
   CENTRE_LEAD_ROLES,
   CENTRE_LEAD_ROLE_LABELS,
@@ -292,7 +293,7 @@ export async function emailLead(
   const supabase = await createClient();
   const { data: lead, error } = await supabase
     .from("centre_leads")
-    .select("id, name, email, role, is_active, exam_centres(name, town)")
+    .select("id, name, email, role, is_active, exam_centres(name, town, kind, edition_year)")
     .eq("id", id)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
@@ -303,7 +304,7 @@ export async function emailLead(
     email: string;
     role: CentreLeadRole;
     is_active: boolean;
-    exam_centres: { name: string; town: string } | null;
+    exam_centres: { name: string; town: string; kind: string; edition_year: number } | null;
   };
   if (!row.is_active) {
     return { ok: false, error: `${row.name} is deactivated — reactivate them first.` };
@@ -317,12 +318,29 @@ export async function emailLead(
     return { ok: false, error: "That person's centre is missing — the email would not say where." };
   }
 
+  let eventDate: string | undefined;
+  if (row.exam_centres.kind === "camp") {
+    const { data: camp, error: campError } = await supabase
+      .from("camp_settings")
+      .select("arrival_at, departure_at")
+      .eq("edition_year", row.exam_centres.edition_year)
+      .maybeSingle();
+    if (campError) return { ok: false, error: campError.message };
+    if (!camp?.arrival_at) {
+      return { ok: false, error: "The camp has no arrival date yet — the email would not say when." };
+    }
+    eventDate = camp.departure_at
+      ? `${formatCampDate(camp.arrival_at, false)} to ${formatCampDate(camp.departure_at, false)}`
+      : formatCampDate(camp.arrival_at, false);
+  }
+
   await sendEmailSafely(
     buildCentreStaffEmail({
       name: row.name,
       email: row.email,
       centre: `${row.exam_centres.name}, ${row.exam_centres.town}`,
       role: CENTRE_LEAD_ROLE_LABELS[row.role],
+      eventDate,
     }),
   );
 

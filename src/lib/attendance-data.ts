@@ -9,6 +9,7 @@ import {
   type RosterCandidate,
   type RosterEntry,
 } from "@/lib/attendance";
+import { openCampAttendance, type OpenCamp } from "@/lib/camp-attendance-data";
 import type { AttendanceStatus, CentreLead, ExamCentre } from "@/supabase/types";
 
 /**
@@ -39,35 +40,63 @@ export async function openAttendanceExam(): Promise<OpenExam | null> {
   return (data as OpenExam) ?? null;
 }
 
+const CENTRE_COLUMNS = "id, edition_year, name, town, legacy_zone, is_active, kind";
+
+/** The zonal venues only. The camp is a centre too, but no school is allocated
+ *  to it, and resolveCentreId's town rung must never match it. */
 export async function listCentres(editionYear: number): Promise<ExamCentre[]> {
   const { data, error } = await db()
     .from("exam_centres")
-    .select("id, edition_year, name, town, legacy_zone, is_active")
+    .select(CENTRE_COLUMNS)
     .eq("edition_year", editionYear)
+    .eq("kind", "exam")
     .order("town");
   if (error) throw new Error(error.message);
   return (data ?? []) as ExamCentre[];
+}
+
+export async function openCamp(): Promise<OpenCamp | null> {
+  return openCampAttendance(db());
+}
+
+/** What the sign-in page offers: the open sitting's venues, and the camp while its register is open. */
+export async function signInCentres(): Promise<{
+  exam: OpenExam | null;
+  camp: OpenCamp | null;
+  centres: ExamCentre[];
+}> {
+  const [exam, camp] = await Promise.all([openAttendanceExam(), openCamp()]);
+  const centres = exam ? await listCentres(exam.edition_year) : [];
+  if (camp) {
+    const { data, error } = await db()
+      .from("exam_centres")
+      .select(CENTRE_COLUMNS)
+      .eq("edition_year", camp.edition_year)
+      .eq("kind", "camp")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (data) centres.unshift(data as ExamCentre);
+  }
+  return { exam, camp, centres: centres.filter((c) => c.is_active) };
 }
 
 export type LeadWithCentre = CentreLead & { centre: ExamCentre };
 
 const LEAD_COLUMNS =
   "id, edition_year, centre_id, name, email, phone, role, is_active, last_signed_in_at," +
-  " centre:exam_centres!inner(id, edition_year, name, town, legacy_zone, is_active)";
+  " centre:exam_centres!inner(id, edition_year, name, town, legacy_zone, is_active, kind)";
 
 /** Matched on the email an admin registered, case-insensitively. Inactive leads
  *  are not returned at all, so deactivating one ends their session at the next
- *  request rather than at expiry. */
+ *  request rather than at expiry. The centre fixes the edition. */
 export async function findActiveLead(
   centreId: string,
   email: string,
-  editionYear: number,
 ): Promise<LeadWithCentre | null> {
   const { data, error } = await db()
     .from("centre_leads")
     .select(LEAD_COLUMNS)
     .eq("centre_id", centreId)
-    .eq("edition_year", editionYear)
     .eq("is_active", true)
     .ilike("email", email.trim())
     .maybeSingle();

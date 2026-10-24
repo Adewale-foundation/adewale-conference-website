@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
 import { canManageModule, canViewModule, requireModuleView } from "@/supabase/auth";
@@ -43,11 +43,12 @@ export default async function CentreAttendance({
 
   const { data: centre, error: centreError } = await supabase
     .from("exam_centres")
-    .select("id, edition_year, name, town, legacy_zone, is_active")
+    .select("id, edition_year, name, town, legacy_zone, is_active, kind")
     .eq("id", centreId)
     .maybeSingle();
   if (centreError) throw new Error(centreError.message);
   if (!centre) notFound();
+  if (centre.kind === "camp") redirect(`/portal/admin/attendance/camp?edition=${centre.edition_year}`);
   const venue = centre as ExamCentre;
 
   // Read before the sitting check: "who is running this hall" is the question

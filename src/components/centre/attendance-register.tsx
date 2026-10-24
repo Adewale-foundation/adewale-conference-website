@@ -1,14 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { LogOut, Search, X } from "lucide-react";
-import { mark, markRemainingAbsent, signOut } from "@/app/(centre)/attendance/actions";
+import {
+  mark as markAtCentre,
+  markRemainingAbsent,
+  signOut,
+  type MarkResult,
+} from "@/app/(centre)/attendance/actions";
 import { attendanceCounts, matchesCandidate, type RosterEntry } from "@/lib/attendance";
 import type { AttendanceStatus } from "@/supabase/types";
 import CandidateRow, { type RowState } from "./candidate-row";
 
 type Entry = RosterEntry & { centreId: string | null };
 type Filter = "all" | "unmarked" | "present" | "absent";
+type RegisterAction = (prev: MarkResult | null, formData: FormData) => Promise<MarkResult>;
+
+// The camp register is marked by admins inside the portal, whose mobile tab bar
+// owns the bottom of the screen and whose people have no candidate number.
+const COPY = {
+  centre: {
+    search: "Name or candidate number…",
+    empty: "No candidates are allocated to this centre yet. Call the exam desk.",
+    sweepWhen: "Do this only once the paper is over.",
+    noun: "candidate",
+  },
+  camp: {
+    search: "Name or school…",
+    empty: "No school has confirmed it is attending camp.",
+    sweepWhen: "Do this only once today's roll call is done.",
+    noun: "person",
+  },
+} as const;
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
@@ -23,13 +46,23 @@ export default function AttendanceRegister({
   examTitle,
   roster,
   walkIns,
+  variant = "centre",
+  mark = markAtCentre,
+  sweepAction = markRemainingAbsent,
+  headerAction,
 }: {
   centreName: string;
   leadName: string;
   examTitle: string;
   roster: Entry[];
   walkIns: Entry[];
+  variant?: keyof typeof COPY;
+  mark?: RegisterAction;
+  sweepAction?: RegisterAction;
+  /** Replaces the sign-out button. */
+  headerAction?: ReactNode;
 }) {
+  const copy = COPY[variant];
   // The server's rows are the truth on load; every confirmed mark is layered on
   // top so the page does not have to round-trip a full re-render per tap.
   const [marked, setMarked] = useState<Record<string, AttendanceStatus | undefined>>({});
@@ -65,7 +98,7 @@ export default function AttendanceRegister({
   async function sweep() {
     setSweeping(true);
     setNotice(null);
-    const result = await markRemainingAbsent(null, new FormData());
+    const result = await sweepAction(null, new FormData());
     if (result.ok) {
       const rest: Record<string, AttendanceStatus> = {};
       for (const e of roster) if (stateOf(e) === "unmarked") rest[e.studentId] = "absent";
@@ -88,7 +121,7 @@ export default function AttendanceRegister({
     : [];
 
   return (
-    <main className="mx-auto w-full max-w-2xl pb-28">
+    <main className={`mx-auto w-full max-w-2xl ${variant === "centre" ? "pb-28" : ""}`}>
       <header className="flex items-start justify-between gap-3 px-5 pt-6">
         <div className="min-w-0">
           <h1 className="font-bebas text-2xl leading-tight text-foreground">{centreName}</h1>
@@ -96,15 +129,17 @@ export default function AttendanceRegister({
             {examTitle} · {leadName}
           </p>
         </div>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="flex min-h-11 cursor-pointer items-center gap-1.5 px-2 text-xs font-bold text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="size-4" aria-hidden="true" />
-            Sign out
-          </button>
-        </form>
+        {headerAction ?? (
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="flex min-h-11 cursor-pointer items-center gap-1.5 px-2 text-xs font-bold text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="size-4" aria-hidden="true" />
+              Sign out
+            </button>
+          </form>
+        )}
       </header>
 
       <div className="sticky top-0 z-20 mt-3 border-y border-foreground/10 bg-background/95 px-5 py-3 backdrop-blur">
@@ -126,7 +161,7 @@ export default function AttendanceRegister({
             inputMode="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Name or candidate number…"
+            placeholder={copy.search}
             aria-label="Find a candidate"
             className="w-full rounded-md border border-foreground/15 bg-card py-2.5 pl-9 pr-3 text-base outline-none focus-visible:border-ring focus-visible:ring-ring/30 focus-visible:ring-[3px]"
           />
@@ -184,9 +219,7 @@ export default function AttendanceRegister({
 
       {visible.length === 0 ? (
         <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-          {roster.length === 0
-            ? "No candidates are allocated to this centre yet. Call the exam desk."
-            : "No candidate here matches that."}
+          {roster.length === 0 ? copy.empty : `No ${copy.noun} here matches that.`}
         </p>
       ) : null}
 
@@ -211,14 +244,20 @@ export default function AttendanceRegister({
       ) : null}
 
       {counts.unmarked > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-foreground/10 bg-card/95 px-5 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur">
+        <div
+          className={
+            variant === "centre"
+              ? "fixed inset-x-0 bottom-0 z-30 border-t border-foreground/10 bg-card/95 px-5 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur"
+              : "px-5 py-4"
+          }
+        >
           <button
             type="button"
             disabled={sweeping}
             onClick={() => {
               if (
                 window.confirm(
-                  `Record the ${counts.unmarked} candidate${counts.unmarked === 1 ? "" : "s"} still unmarked as absent? Do this only once the paper is over.`,
+                  `Record the ${counts.unmarked} ${counts.unmarked === 1 ? copy.noun : variant === "camp" ? "people" : "candidates"} still unmarked as absent? ${copy.sweepWhen}`,
                 )
               ) {
                 void sweep();

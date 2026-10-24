@@ -61,7 +61,7 @@ export default async function AdminAttendance() {
     await Promise.all([
       supabase
         .from("exam_centres")
-        .select("id, edition_year, name, town, legacy_zone, is_active")
+        .select("id, edition_year, name, town, legacy_zone, is_active, kind")
         .eq("edition_year", editionYear)
         .order("town"),
       supabase
@@ -74,7 +74,10 @@ export default async function AdminAttendance() {
         .order("name"),
     ]);
 
-  const centres = (centreRows ?? []) as ExamCentre[];
+  // Every venue staff sign in to, camp included, for the staff tab; turnout and
+  // allocation are the zonal venues only.
+  const allCentres = (centreRows ?? []) as ExamCentre[];
+  const centres = allCentres.filter((c) => c.kind !== "camp");
   const leads = (leadRows ?? []) as unknown as CentreLead[];
 
   const sitting = open ? await loadSitting(open) : null;
@@ -84,6 +87,8 @@ export default async function AdminAttendance() {
   const activeLeads = leads.filter((l) => l.is_active);
   const staffedCentreIds = new Set(activeLeads.map((l) => l.centre_id));
   const unstaffed = centres.filter((c) => c.is_active && !staffedCentreIds.has(c.id));
+  const campCentre = allCentres.find((c) => c.kind === "camp");
+  const campStaff = campCentre ? activeLeads.filter((l) => l.centre_id === campCentre.id).length : 0;
 
   const turnoutTab = (
     <section className="space-y-3">
@@ -200,6 +205,17 @@ export default async function AdminAttendance() {
           </Card>
         ) : null}
 
+        <Link
+          href="/portal/admin/attendance/camp"
+          className="block border border-foreground/10 bg-card px-4 py-3 text-sm hover:bg-foreground/5"
+        >
+          <span className="font-bold text-foreground">Camp register →</span>{" "}
+          <span className="text-muted-foreground">
+            Students and educators at camp, marked day by day by camp staff ·{" "}
+            {campStaff} staff registered
+          </span>
+        </Link>
+
         {/* ── the sitting ───────────────────────────────────────────────── */}
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
@@ -262,7 +278,7 @@ export default async function AdminAttendance() {
               slug: "staff",
               content: (
                 <CentreLeadsPanel
-                  centres={centres}
+                  centres={allCentres}
                   leads={leads}
                   canManage={canManage}
                   editionYear={editionYear}

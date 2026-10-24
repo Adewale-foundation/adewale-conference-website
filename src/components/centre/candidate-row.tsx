@@ -25,9 +25,11 @@ export default function CandidateRow({
     <li className="flex items-center gap-3 px-5 py-3">
       {/* The candidate number leads, because it is what is printed on the desk
           and what a lead is reading from. */}
-      <span className="w-12 shrink-0 font-bebas text-2xl tabular-nums text-foreground">
-        {entry.examNo}
-      </span>
+      {entry.examNo ? (
+        <span className="w-12 shrink-0 font-bebas text-2xl tabular-nums text-foreground">
+          {entry.examNo}
+        </span>
+      ) : null}
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold text-foreground">{entry.name}</p>

@@ -148,6 +148,8 @@ export interface CampSettings {
   confirm_deadline: string | null;
   whatsapp_url: string | null;
   is_open: boolean;
+  /** Camp staff can sign in and mark while true. */
+  attendance_open?: boolean;
 }
 
 export interface CampConfirmation {
@@ -472,6 +474,8 @@ export interface ExamCentre {
    *  stored qualification_zone can reach (Arigbajo, Imeko). */
   legacy_zone: string | null;
   is_active: boolean;
+  /** 'camp' is the camp venue, which staff sign in to but no school is allocated to. */
+  kind?: "exam" | "camp";
 }
 
 export const CENTRE_LEAD_ROLES = ["centre_lead", "invigilator", "materials_officer"] as const;
