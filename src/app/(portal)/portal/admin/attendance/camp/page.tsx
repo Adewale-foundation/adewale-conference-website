@@ -2,7 +2,14 @@ import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
 import { canManageModule, requireModuleView } from "@/supabase/auth";
-import { Card, EmptyState, PortalBody, PortalHeader, SectionHeading, StatTile } from "@/components/portal/ui";
+import {
+  Card,
+  EmptyState,
+  PortalBody,
+  PortalHeader,
+  SectionHeading,
+  StatTile,
+} from "@/components/portal/ui";
 import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import ActionForm from "@/components/portal/action-form";
 import { SubmitButton } from "@/components/portal/submit-button";
@@ -11,23 +18,38 @@ import AttendanceTabs from "@/components/portal/attendance-tabs";
 import CentreLeadsPanel from "@/components/portal/centre-leads-panel";
 import MarkButtons from "@/components/portal/mark-buttons";
 import { CENTRE_LEAD_ROLE_LABELS, type CentreLead, type ExamCentre } from "@/supabase/types";
-import { attendanceCounts, latestEventByStudent, markerName, type AttendanceEvent } from "@/lib/attendance";
-import { campDayFor, campDays, campRegister, formatCampDay } from "@/lib/camp-attendance";
+import {
+  attendanceCounts,
+  latestEventByStudent,
+  markerName,
+  type AttendanceEvent,
+} from "@/lib/attendance";
+import {
+  campDayFor,
+  campDays,
+  campRegister,
+  formatCampDay,
+  groupBySchool,
+} from "@/lib/camp-attendance";
+import SchoolFilter from "@/components/portal/school-filter";
 import { loadCampMarks, loadCampPeople } from "@/lib/camp-attendance-data";
 import { SITE_URL } from "@/lib/site";
 import { correctCampMark, setCampAttendanceOpen } from "./actions";
 
-export const metadata = pageMetadata("Camp attendance", "Who is at camp, day by day, and who marked them.");
+export const metadata = pageMetadata(
+  "Camp attendance",
+  "Who is at camp, day by day, and who marked them.",
+);
 export const dynamic = "force-dynamic";
 
 export default async function CampAttendance({
   searchParams,
 }: {
-  searchParams: Promise<{ edition?: string; day?: string }>;
+  searchParams: Promise<{ edition?: string; day?: string; school?: string }>;
 }) {
   await requireModuleView("participants");
   const canManage = await canManageModule("participants");
-  const { edition, day: dayParam } = await searchParams;
+  const { edition, day: dayParam, school: schoolParam } = await searchParams;
   const supabase = await createClient();
 
   const { data: latest, error: latestError } = await supabase
@@ -101,12 +123,19 @@ export default async function CampAttendance({
   const latestEvent = latestEventByStudent((eventRows ?? []) as unknown as AttendanceEvent[]);
   const students = attendanceCounts(register.filter((p) => p.role === "student"));
   const educators = attendanceCounts(register.filter((p) => p.role !== "student"));
-  const dayHref = (d: string) => `/portal/admin/attendance/camp?edition=${year}&day=${d}`;
+  const allGroups = groupBySchool(register);
+  const school = allGroups.some((g) => g.registrationId === schoolParam) ? schoolParam! : "";
+  const groups = school ? allGroups.filter((g) => g.registrationId === school) : allGroups;
+  const dayHref = (d: string) =>
+    `/portal/admin/attendance/camp?edition=${year}&day=${d}${school ? `&school=${school}` : ""}`;
   const open = Boolean(settings.attendance_open);
 
   return (
     <>
-      <PortalHeader title="Attendance" subtitle={`${settings.title} · ${formatCampDay(day, days)}`} />
+      <PortalHeader
+        title="Attendance"
+        subtitle={`${settings.title} · ${formatCampDay(day, days)}`}
+      />
       <PortalBody>
         <AttendanceTabs active="camp" />
 
@@ -120,8 +149,11 @@ export default async function CampAttendance({
               {open ? (
                 <>
                   <span className="font-bold text-foreground">Open.</span> Camp staff sign in at the
-                  link below, choose <span className="font-bold">{centre ? `${centre.name}, ${centre.town}` : "the camp"}</span>,
-                  and mark today&apos;s register.
+                  link below, choose{" "}
+                  <span className="font-bold">
+                    {centre ? `${centre.name}, ${centre.town}` : "the camp"}
+                  </span>
+                  , and mark today&apos;s register.
                 </>
               ) : (
                 <span className="text-muted-foreground">
@@ -129,7 +161,9 @@ export default async function CampAttendance({
                 </span>
               )}
             </p>
-            <p className={`text-sm ${staffCount ? "text-muted-foreground" : "font-bold text-destructive"}`}>
+            <p
+              className={`text-sm ${staffCount ? "text-muted-foreground" : "font-bold text-destructive"}`}
+            >
               {staffCount
                 ? `${staffCount} staff can sign in to mark the camp.`
                 : "Nobody can mark the camp yet."}{" "}
@@ -142,7 +176,10 @@ export default async function CampAttendance({
               <ActionForm action={setCampAttendanceOpen}>
                 <input type="hidden" name="edition_year" value={year} />
                 <input type="hidden" name="open" value={open ? "false" : "true"} />
-                <SubmitButton variant={open ? "outline" : undefined} pendingText={open ? "Closing…" : "Opening…"}>
+                <SubmitButton
+                  variant={open ? "outline" : undefined}
+                  pendingText={open ? "Closing…" : "Opening…"}
+                >
                   {open ? "Close camp attendance" : "Open camp attendance"}
                 </SubmitButton>
               </ActionForm>
@@ -175,7 +212,9 @@ export default async function CampAttendance({
                 href={dayHref(d)}
                 scroll={false}
                 className={`min-h-9 rounded-full px-3 py-2 text-xs font-bold ${
-                  d === day ? "bg-primary/15 text-gold-ink" : "bg-foreground/5 text-muted-foreground"
+                  d === day
+                    ? "bg-primary/15 text-gold-ink"
+                    : "bg-foreground/5 text-muted-foreground"
                 }`}
               >
                 {formatCampDay(d, days)}
@@ -191,7 +230,10 @@ export default async function CampAttendance({
 
           <div className="grid gap-3 sm:grid-cols-4">
             <StatTile label="Students present" value={`${students.present} / ${students.total}`} />
-            <StatTile label="Educators present" value={`${educators.present} / ${educators.total}`} />
+            <StatTile
+              label="Educators present"
+              value={`${educators.present} / ${educators.total}`}
+            />
             <StatTile label="Absent" value={String(students.absent + educators.absent)} />
             <StatTile label="Not marked" value={String(students.unmarked + educators.unmarked)} />
           </div>
@@ -201,50 +243,83 @@ export default async function CampAttendance({
               No school has confirmed it is attending camp.
             </EmptyState>
           ) : (
-            <Card className="divide-y divide-foreground/5 p-0">
-              {register.map((p) => {
-                const event = latestEvent.get(p.key);
-                const who = markerName(event);
+            <>
+              <SchoolFilter
+                value={school}
+                schools={allGroups.map((g) => ({
+                  registrationId: g.registrationId,
+                  schoolName: g.schoolName,
+                  count: g.rows.length,
+                }))}
+              />
+              {groups.map((group) => {
+                const c = attendanceCounts(group.rows);
                 return (
-                  <div
-                    key={p.key}
-                    className="grid gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-foreground">{p.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {p.schoolName}
-                        {p.detail ? ` · ${p.detail}` : ""}
+                  <Card key={group.registrationId} className="divide-y divide-foreground/5 p-0">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 bg-foreground/5 px-4 py-2.5">
+                      <p className="text-sm font-bold text-foreground">{group.schoolName}</p>
+                      <p className="text-xs tabular-nums text-muted-foreground">
+                        <span className="font-bold text-foreground">{c.present}</span> of {c.total}{" "}
+                        present
+                        {c.absent ? ` · ${c.absent} absent` : ""}
+                        {c.unmarked ? (
+                          <span className="text-gold-ink"> · {c.unmarked} not marked</span>
+                        ) : null}
                       </p>
                     </div>
-                    <div className="min-w-0 text-xs text-muted-foreground">
-                      {p.state === "unmarked" ? (
-                        <span className="text-gold-ink">Not marked</span>
-                      ) : (
-                        <>
-                          <span
-                            className={
-                              p.state === "present" ? "font-bold text-foreground" : "font-bold text-destructive"
-                            }
-                          >
-                            {p.state === "present" ? "Present" : "Absent"}
-                          </span>
-                          {who ? ` · marked by ${who}` : ""}
-                          {event ? ` · ${new Date(event.at).toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos" })}` : ""}
-                        </>
-                      )}
-                    </div>
-                    {canManage ? (
-                      <MarkButtons
-                        action={correctCampMark}
-                        fields={{ edition_year: year, day, person_key: p.key }}
-                        state={p.state}
-                      />
-                    ) : null}
-                  </div>
+                    {group.rows.map((p) => {
+                      const event = latestEvent.get(p.key);
+                      const who = markerName(event);
+                      return (
+                        <div
+                          key={p.key}
+                          className="grid gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-foreground">{p.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {p.detail || (p.role === "student" ? "Student" : "Educator")}
+                            </p>
+                          </div>
+                          <div className="min-w-0 text-xs text-muted-foreground">
+                            {p.state === "unmarked" ? (
+                              <span className="text-gold-ink">Not marked</span>
+                            ) : (
+                              <>
+                                <span
+                                  className={
+                                    p.state === "present"
+                                      ? "font-bold text-foreground"
+                                      : "font-bold text-destructive"
+                                  }
+                                >
+                                  {p.state === "present" ? "Present" : "Absent"}
+                                </span>
+                                {who ? ` · marked by ${who}` : ""}
+                                {event
+                                  ? ` · ${new Date(event.at).toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos" })}`
+                                  : ""}
+                              </>
+                            )}
+                          </div>
+                          {canManage ? (
+                            <MarkButtons
+                              action={correctCampMark}
+                              fields={{
+                                edition_year: year,
+                                day,
+                                person_key: p.key,
+                              }}
+                              state={p.state}
+                            />
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </Card>
                 );
               })}
-            </Card>
+            </>
           )}
         </section>
       </PortalBody>

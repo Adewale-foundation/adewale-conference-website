@@ -10,6 +10,7 @@ import {
   campRegisterPeople,
   campStudentKey,
   formatCampDay,
+  groupBySchool,
   lagosDay,
   parseCampPersonKey,
   type CampRegisterSchool,
@@ -147,5 +148,19 @@ describe("campRegister and campAttendanceMatrix", () => {
     const row = matrix.find((r) => r[1] === "Zainab Okafor")!;
     assert.deepEqual(row.slice(2), ["Student", "SS 2", "Present", "Absent"]);
     assert.deepEqual(matrix[1].slice(2), ["Educator", "Educator", "Not marked", "Not marked"]);
+  });
+});
+
+describe("groupBySchool", () => {
+  it("keeps each school's people together, in order", () => {
+    const groups = groupBySchool([
+      { registrationId: "a", schoolName: "Riverbend Academy", name: "1" },
+      { registrationId: "b", schoolName: "Zenith College", name: "2" },
+      { registrationId: "a", schoolName: "Riverbend Academy", name: "3" },
+    ]);
+    assert.deepEqual(
+      groups.map((g) => [g.schoolName, g.rows.map((r) => r.name)]),
+      [["Riverbend Academy", ["1", "3"]], ["Zenith College", ["2"]]],
+    );
   });
 });

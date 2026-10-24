@@ -199,3 +199,18 @@ export function campAttendanceMatrix(
     ]),
   ];
 }
+
+export type SchoolGroup<T> = { registrationId: string; schoolName: string; rows: T[] };
+
+/** Consecutive rows of one school under one heading, in the order given. */
+export function groupBySchool<T extends { registrationId: string; schoolName: string }>(
+  rows: T[],
+): SchoolGroup<T>[] {
+  const groups = new Map<string, SchoolGroup<T>>();
+  for (const row of rows) {
+    const group = groups.get(row.registrationId);
+    if (group) group.rows.push(row);
+    else groups.set(row.registrationId, { registrationId: row.registrationId, schoolName: row.schoolName, rows: [row] });
+  }
+  return [...groups.values()];
+}

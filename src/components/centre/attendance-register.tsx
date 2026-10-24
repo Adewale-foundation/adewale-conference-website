@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { LogOut, Search, X } from "lucide-react";
 import {
   mark as markAtCentre,
@@ -69,6 +69,8 @@ export default function AttendanceRegister({
   const [rowState, setRowState] = useState<Record<string, RowState>>({});
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  // Camp only: schoolId carries the registration, and a roll call goes school by school.
+  const [school, setSchool] = useState("");
   const [sweeping, setSweeping] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -112,8 +114,13 @@ export default function AttendanceRegister({
 
   const visible = roster.filter((e) => {
     if (filter !== "all" && stateOf(e) !== filter) return false;
+    if (school && e.schoolId !== school) return false;
     return matchesCandidate(e, query);
   });
+
+  const schools = [...new Map(roster.map((e) => [e.schoolId, e.schoolName])).entries()];
+  const schoolCounts = (schoolId: string) =>
+    attendanceCounts(roster.filter((e) => e.schoolId === schoolId).map((e) => ({ state: stateOf(e) })));
 
   // Walk-ins are search-only: an empty query shows none of them.
   const walkInMatches = query.trim()
@@ -193,6 +200,22 @@ export default function AttendanceRegister({
             </button>
           ))}
         </div>
+
+        {variant === "camp" && schools.length > 1 ? (
+          <select
+            aria-label="Filter by school"
+            value={school}
+            onChange={(e) => setSchool(e.target.value)}
+            className="mt-2 min-h-10 w-full rounded-md border border-foreground/15 bg-card px-3 text-sm"
+          >
+            <option value="">All schools ({schools.length})</option>
+            {schools.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        ) : null}
       </div>
 
       {notice ? (
@@ -206,15 +229,30 @@ export default function AttendanceRegister({
       ) : null}
 
       <ul className="mt-3 divide-y divide-foreground/5 border-y border-foreground/10">
-        {visible.map((entry) => (
-          <CandidateRow
-            key={entry.studentId}
-            entry={entry}
-            state={stateOf(entry)}
-            rowState={rowState[entry.studentId]}
-            onMark={(status) => submit(entry, status)}
-          />
-        ))}
+        {visible.map((entry, i) => {
+          const startsSchool = variant === "camp" && visible[i - 1]?.schoolId !== entry.schoolId;
+          const c = startsSchool ? schoolCounts(entry.schoolId) : null;
+          return (
+            <Fragment key={entry.studentId}>
+              {c ? (
+                <li className="flex items-baseline justify-between gap-2 bg-foreground/5 px-5 py-2">
+                  <span className="truncate text-xs font-bold uppercase tracking-[0.12em] text-foreground">
+                    {entry.schoolName}
+                  </span>
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {c.present} of {c.total} present
+                  </span>
+                </li>
+              ) : null}
+              <CandidateRow
+                entry={entry}
+                state={stateOf(entry)}
+                rowState={rowState[entry.studentId]}
+                onMark={(status) => submit(entry, status)}
+              />
+            </Fragment>
+          );
+        })}
       </ul>
 
       {visible.length === 0 ? (
