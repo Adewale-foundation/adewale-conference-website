@@ -5,6 +5,7 @@ import { FINALE_BASE, anyResult, bracketScore, pledgeLink } from "@/lib/finale";
 import { FINALE_YEAR, finaleDb, loadFinale, loadLeaders, loadSupporter } from "@/lib/finale-data";
 import { currentSupporterId } from "@/lib/finale-session";
 import { pageMetadata } from "@/lib/seo";
+import ShareButton from "@/components/finale/share-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { ...pageMetadata("Your supporter badge", "Your team and your Grand Finale bracket."), robots: { index: false } };
@@ -47,9 +48,6 @@ export default async function FinaleBadge({ searchParams }: { searchParams: Prom
     ["Champion", supporter.pick_champion, settings?.champion_team_id],
   ];
   const site = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
-  const share = encodeURIComponent(
-    `I'm backing ${team.name} at the ASC Grand Finale. You can PICK your supported team too: ${site}${FINALE_BASE}`,
-  );
   const pledgeUrl = pledgeLink(settings);
 
   return (
@@ -71,14 +69,10 @@ export default async function FinaleBadge({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
-      <a
-        href={`https://wa.me/?text=${share}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${ctaClass} bg-[#1E9E52] text-white`}
-      >
-        Share on WhatsApp
-      </a>
+      <ShareButton
+        text={`I'm backing ${team.name} at the ASC Grand Finale. You can PICK your supported team too:`}
+        url={`${site}${FINALE_BASE}`}
+      />
 
       <Panel className="grid gap-2">
         <div className="flex items-baseline justify-between">
