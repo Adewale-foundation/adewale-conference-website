@@ -23,8 +23,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const data = await load(slug);
   return data?.team
-    ? pageMetadata(`Support ${data.team.name}`, `Back ${data.team.name} at the ASC Grand Finale and predict the champion.`)
-    : pageMetadata("Grand Finale fan vote", "Pick your team for the ASC Grand Finale.");
+    ? pageMetadata(`Support ${data.team.name}`, `Back ${data.team.name} at the ASC Grand Finale and predict the champion.`, `${FINALE_BASE}/${slug}`)
+    : pageMetadata("Grand Finale fan vote", "Pick your team for the ASC Grand Finale.", FINALE_BASE);
 }
 
 export default async function FinaleTeam({ params }: { params: Promise<{ slug: string }> }) {

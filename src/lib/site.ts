@@ -1,3 +1,5 @@
+export const SITE_NAME = "Adewale Students Conference";
+
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.adewaleconference.org";
 

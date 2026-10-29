@@ -5,7 +5,7 @@ import { currentSupporterId } from "@/lib/finale-session";
 import { pageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-export const metadata = pageMetadata("Grand Finale leaderboard", "The supporters who called the ASC Grand Finale best.");
+export const metadata = pageMetadata("Grand Finale leaderboard", "The supporters who called the ASC Grand Finale best.", `${FINALE_BASE}/leaders`);
 
 export default async function FinaleLeaders() {
   const db = finaleDb();

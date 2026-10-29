@@ -9,6 +9,7 @@ export const revalidate = 30;
 export const metadata = pageMetadata(
   "Grand Finale fan vote",
   "Pick your team for the ASC Grand Finale, predict the champion and back the schools.",
+  FINALE_BASE,
 );
 
 const linkCard = "flex items-center justify-between gap-3 rounded-xl bg-card px-4 py-3.5 text-sm shadow-[0_0_0_1px_rgba(10,15,30,0.1)] hover:bg-foreground/[0.02]";
