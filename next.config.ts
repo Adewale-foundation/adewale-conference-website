@@ -30,6 +30,8 @@ const nextConfig: NextConfig = {
     "/portal/admin/editions": ["./src/emails/**/*"],
     "/portal/admin/announcements": ["./src/emails/**/*"],
     "/portal/admin/attendance": ["./src/emails/**/*"],
+    // The fan vote's share images read their font files at runtime.
+    "/finale/**": ["./assets/fonts/**/*"],
   },
   // The Fellows page was briefly published as /volunteer before the programme was
   // branded; keep any link already shared working.
