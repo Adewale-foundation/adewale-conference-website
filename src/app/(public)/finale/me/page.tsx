@@ -48,7 +48,7 @@ export default async function FinaleBadge({ searchParams }: { searchParams: Prom
   ];
   const site = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
   const share = encodeURIComponent(
-    `I'm backing ${team.name} at the ASC Grand Finale. Pick your team: ${site}${FINALE_BASE}/${team.slug}`,
+    `I'm backing ${team.name} at the ASC Grand Finale. You can PICK your supported team too: ${site}${FINALE_BASE}`,
   );
   const pledgeUrl = pledgeLink(settings);
 
