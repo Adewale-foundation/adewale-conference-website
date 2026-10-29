@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/supabase/server";
 import { requireManage } from "@/supabase/auth";
 import { lagosInputToIso } from "@/lib/camp";
-import { FINALE_BASE, TEAM_COLORS, cleanText, teamSlug, validPledgeUrl, validateResults } from "@/lib/finale";
+import { FINALE_BASE, TEAM_COLORS, cleanText, maskPhone, normalizeNgPhone, teamSlug, validPledgeUrl, validateResults } from "@/lib/finale";
 import { loadCampRoster } from "@/lib/camp-data";
 import type { ActionResult } from "@/app/(portal)/portal/admin/paper-exams/actions";
 import type { FinalePublicStatus, FinaleTeamColor } from "@/supabase/types";
@@ -148,6 +148,32 @@ export async function saveFinaleTeam(
   }
   refresh();
   return { ok: true, message: teamId ? "Team saved." : "Team added." };
+}
+
+/** For someone who backed the wrong school: their entry goes, and the same phone can join again. */
+export async function removeSupporterEntry(year: number, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const admin = await requireManage("participants");
+  if (!admin) return denied;
+  const phone = normalizeNgPhone(formData.get("phone"));
+  if (!phone) return { ok: false, error: "Enter the Nigerian mobile number they joined with." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("finale_supporters")
+    .delete()
+    .eq("edition_year", year)
+    .eq("phone", phone)
+    .select("team_id");
+  if (error) return { ok: false, error: `Could not remove: ${error.message}` };
+  if (!data?.length) return { ok: false, error: `No entry uses ${maskPhone(phone)}.` };
+
+  const { data: team, error: teamError } = await supabase.from("finale_teams").select("name").eq("id", data[0].team_id).maybeSingle();
+  if (teamError) console.error("finale: removed entry's team", teamError.message);
+  refresh();
+  return {
+    ok: true,
+    message: `Removed ${maskPhone(phone)}${team?.name ? `, who was backing ${team.name}` : ""}. They can join again from the same phone.`,
+  };
 }
 
 export async function setSupporterVisibility(

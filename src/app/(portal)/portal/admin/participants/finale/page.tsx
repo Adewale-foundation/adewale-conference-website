@@ -13,7 +13,7 @@ import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/supabase/server";
 import { canManageModule, requireModuleView } from "@/supabase/auth";
 import type { FinalePublicStatus, FinaleSupporter, FinaleTeamColor } from "@/supabase/types";
-import { saveFinaleResults, saveFinaleSettings, saveFinaleTeam, setSupporterVisibility } from "./actions";
+import { removeSupporterEntry, saveFinaleResults, saveFinaleSettings, saveFinaleTeam, setSupporterVisibility } from "./actions";
 
 export const metadata = pageMetadata("Grand Finale fan vote", "Teams, results and moderation for the fan vote.");
 export const dynamic = "force-dynamic";
@@ -189,6 +189,32 @@ export default async function AdminFinale({
             <a href="/portal/admin/participants/finale/export" className="text-xs uppercase tracking-[0.2em] text-primary hover:underline">
               Supporters, ranked ↓
             </a>
+          </Card>
+        ) : null}
+
+        {canManage ? (
+          <Card className="p-5">
+            <h2 className="text-xl font-bold text-foreground">Fix a mistaken entry</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Someone backed the wrong school? Remove their entry using the phone number they joined with, then ask them to
+              join again. Their picks and cheer are removed too.
+            </p>
+            <ActionForm action={removeSupporterEntry.bind(null, year)} className="mt-4 flex flex-wrap items-end gap-3">
+              <label className="block min-w-56 flex-1 space-y-1">
+                <span className={labelCls}>Phone number</span>
+                <input name="phone" type="tel" inputMode="tel" placeholder="0803 123 4567" required className={inputCls} />
+              </label>
+              <ConfirmSubmitButton
+                size="sm"
+                variant="outline"
+                destructive
+                title="Remove this entry?"
+                description="Their team, picks and cheer will be deleted. They can join again with the same phone."
+                confirmLabel="Yes, remove"
+              >
+                Remove entry
+              </ConfirmSubmitButton>
+            </ActionForm>
           </Card>
         ) : null}
 
