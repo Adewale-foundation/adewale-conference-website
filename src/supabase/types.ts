@@ -152,6 +152,51 @@ export interface CampSettings {
   attendance_open?: boolean;
 }
 
+export type FinaleTeamColor = "teal" | "coral" | "indigo" | "green" | "plum" | "amber";
+
+export interface FinaleTeam {
+  id: string;
+  edition_year: number;
+  slug: string;
+  name: string;
+  label: string | null;
+  registration_id: string | null;
+  /** Naira pledged to this school, typed in by an admin from the Paystack dashboard. */
+  pledged: number | null;
+  semi: 1 | 2;
+  sort: number;
+  color: FinaleTeamColor;
+}
+
+export interface FinaleSettings {
+  edition_year: number;
+  is_open: boolean;
+  closes_at: string | null;
+  semi1_winner_id: string | null;
+  semi2_winner_id: string | null;
+  champion_team_id: string | null;
+  reward_count: number;
+  reward_text: string | null;
+  /** A Paystack Payment Page; pledges are taken there, not on this site. */
+  pledge_url: string | null;
+}
+
+export type FinalePublicStatus = "visible" | "held" | "hidden";
+
+export interface FinaleSupporter {
+  id: string;
+  edition_year: number;
+  team_id: string;
+  pick_semi1: string;
+  pick_semi2: string;
+  pick_champion: string;
+  display_name: string | null;
+  phone: string;
+  cheer: string | null;
+  public_status: FinalePublicStatus;
+  created_at: string;
+}
+
 export interface CampConfirmation {
   id: string;
   registration_id: string;
