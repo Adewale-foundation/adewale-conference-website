@@ -75,6 +75,13 @@ export function csvCell(value: CsvCell, formulaGuard = false): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+/** Text a member of the public typed, made inert for a spreadsheet: a leading
+ *  = + - @ or control character would otherwise run as a formula (CSV injection). */
+export function inertText(value: string | null | undefined): string {
+  const s = value ?? "";
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+}
+
 /** Serialize a matrix. `bom` for files a human opens in Excel/Sheets; omit it
  *  for files another program parses. Rows are CRLF-joined per RFC 4180. */
 export function toCsv(
