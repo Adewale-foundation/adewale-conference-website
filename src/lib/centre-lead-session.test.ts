@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { readSession, sessionExpiry, signSession } from "./centre-lead-session";
+import { readSignedValue, signValue } from "./signed-cookie";
 
 const SECRET = "test-secret-not-a-real-one";
 const OTHER = "a-different-secret";
@@ -63,6 +64,30 @@ describe("signSession / readSession", () => {
     const [, , signature] = signSession(LEAD, NOW + 60_000, SECRET).split(".");
     const raw = createHmac("sha256", SECRET).update(`${LEAD}.${NOW + 60_000}`).digest("base64url");
     assert.notEqual(signature, raw);
+  });
+});
+
+describe("signed-cookie purposes", () => {
+  // Pins the derivation the centre cookie used before it moved to signed-cookie.ts,
+  // so leads signed in on the day of a deploy stay signed in.
+  it("still signs exactly as the original centre-lead cookie did", () => {
+    const key = createHmac("sha256", SECRET).update("centre-lead-session-v1").digest();
+    const payload = `${LEAD}.${NOW + 60_000}`;
+    const expected = createHmac("sha256", key).update(payload).digest("base64url");
+    assert.equal(signSession(LEAD, NOW + 60_000, SECRET), `${payload}.${expected}`);
+  });
+
+  it("never accepts a value minted for another purpose", () => {
+    const finale = signValue(LEAD, NOW + 60_000, SECRET, "finale-supporter-v1");
+    assert.equal(readSession(finale, SECRET, NOW), null);
+    const centre = signSession(LEAD, NOW + 60_000, SECRET);
+    assert.equal(readSignedValue(centre, SECRET, "finale-supporter-v1", NOW), null);
+    assert.equal(readSignedValue(finale, SECRET, "finale-supporter-v1", NOW), LEAD);
+  });
+
+  it("refuses an id that would break the format", () => {
+    assert.throws(() => signValue("a.b", NOW + 60_000, SECRET, "x"), /dot/);
+    assert.throws(() => signValue("", NOW + 60_000, SECRET, "x"), /empty/);
   });
 });
 
