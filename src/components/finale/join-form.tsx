@@ -99,7 +99,10 @@ export default function JoinForm({
       </div>
 
       <div className="grid gap-2">
-        <Eyebrow>Your bracket</Eyebrow>
+        <Eyebrow>Your prediction</Eyebrow>
+        <p className="text-xs text-muted-foreground">
+          Who you think will win. You still support <b className="text-foreground">{team.name}</b>, whatever you pick here.
+        </p>
         <span className="text-xs text-muted-foreground">Semi-final 1</span>
         {pickGroup(1, semi1, (v) => {
           setSemi1(v);
@@ -195,7 +198,7 @@ export default function JoinForm({
 
       <Dock>
         <button type="submit" disabled={pending || !championValid} className={`${ctaClass} bg-(--team) text-white`}>
-          {pending ? "Joining…" : "I'm in"}
+          {pending ? "Joining…" : `I'm in: support ${team.name}`}
         </button>
       </Dock>
     </form>

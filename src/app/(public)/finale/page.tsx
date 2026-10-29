@@ -82,10 +82,12 @@ export default async function FinaleHome() {
             <Link href={`${FINALE_BASE}/me`} className="text-sm font-bold text-gold-ink hover:underline">Already joined? Your badge ›</Link>
           </div>
 
+          {state === "open" ? <HowToVote /> : null}
+
           <div className="grid items-center gap-4 md:grid-cols-[minmax(0,1fr)_minmax(13rem,0.65fr)_minmax(0,1fr)] md:gap-6">
-            <MatchCard label="Semi-final 1" a={semi(1)[0]} b={semi(1)[1]} winnerSlug={finalists[0]?.slug} />
+            <MatchCard label="Semi-final 1" a={semi(1)[0]} b={semi(1)[1]} winnerSlug={finalists[0]?.slug} cta={state === "open" ? "Back" : "View"} />
             <FinalBox champion={champion} finalists={finalists} />
-            <MatchCard label="Semi-final 2" a={semi(2)[0]} b={semi(2)[1]} winnerSlug={finalists[1]?.slug} />
+            <MatchCard label="Semi-final 2" a={semi(2)[0]} b={semi(2)[1]} winnerSlug={finalists[1]?.slug} cta={state === "open" ? "Back" : "View"} />
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -112,6 +114,32 @@ export default async function FinaleHome() {
         </div>
       </section>
     </>
+  );
+}
+
+const HOW_TO_VOTE: [string, string][] = [
+  ["Tap “Back” on your school", "It opens that school's page. Make sure it's the right one."],
+  ["Tap “Support” on that page", "The button names the school, so check it before you tap."],
+  ["Pick your winners", "Choose both semi-final winners and the champion. These picks are your prediction, not your team."],
+  ["Add your name and phone, then tap “I'm in”", "One entry per phone number, so it can't be changed afterwards."],
+];
+
+function HowToVote() {
+  return (
+    <div className="rounded-2xl bg-card p-5 shadow-[0_0_0_1px_rgba(10,15,30,0.1)]">
+      <Eyebrow>How to vote</Eyebrow>
+      <ol className="mt-3 grid gap-4 md:grid-cols-4">
+        {HOW_TO_VOTE.map(([title, detail], i) => (
+          <li key={title} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3 text-sm">
+            <span className="grid size-7 place-items-center rounded-full bg-secondary text-xs font-extrabold text-secondary-foreground">{i + 1}</span>
+            <span>
+              <b className="block">{title}</b>
+              <span className="text-muted-foreground">{detail}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
