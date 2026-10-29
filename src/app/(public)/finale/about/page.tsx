@@ -3,7 +3,7 @@ import { Dock, Eyebrow, Panel, Shell, Title, TopBar, ctaClass } from "@/componen
 import { FINALE_BASE, FUND_SPLIT, TEAM_SHARE } from "@/lib/finale";
 import { pageMetadata } from "@/lib/seo";
 
-export const metadata = pageMetadata("About the Champions' Fund", "How the optional Grand Finale pledges are shared.");
+export const metadata = pageMetadata("About the Champions' Fund", "How the optional Grand Finale pledges are shared.", `${FINALE_BASE}/about`);
 
 const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
 

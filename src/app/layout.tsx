@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "./providers";
 import RegisterSW from "@/components/pwa/register-sw";
-import { SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 export const viewport: Viewport = {
   themeColor: "#0A0F1E",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     "Ogun State's flagship STEM competition for senior secondary students — building tomorrow's geniuses today.",
   openGraph: {
     type: "website",
-    siteName: "Adewale Students Conference",
+    siteName: SITE_NAME,
     url: SITE_URL,
   },
 };
