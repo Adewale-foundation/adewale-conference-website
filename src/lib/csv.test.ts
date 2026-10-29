@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { csvCell, gridToObjects, parseCsvGrid, stripBom, toCsv } from "./csv";
+import { csvCell, gridToObjects, inertText, parseCsvGrid, stripBom, toCsv } from "./csv";
 
 describe("parseCsvGrid", () => {
   it("parses a plain grid", () => {
@@ -162,5 +162,20 @@ describe("stripBom", () => {
     assert.equal(stripBom("﻿abc"), "abc");
     assert.equal(stripBom("abc"), "abc");
     assert.equal(stripBom(""), "");
+  });
+});
+
+describe("inertText", () => {
+  it("defuses text that a spreadsheet would run as a formula", () => {
+    for (const bad of ["=HYPERLINK(\"x\")", "+1+1", "-2+3", "@SUM(A1)", "\tx", "\rx"]) {
+      assert.equal(inertText(bad), `'${bad}`);
+    }
+  });
+
+  it("leaves ordinary text and empties alone", () => {
+    assert.equal(inertText("Go Riverbend!"), "Go Riverbend!");
+    assert.equal(inertText("a=b"), "a=b");
+    assert.equal(inertText(""), "");
+    assert.equal(inertText(null), "");
   });
 });
