@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import JoinForm from "@/components/finale/join-form";
 import { NotReady, Shell, Title, TopBar, teamStyle } from "@/components/finale/ui";
@@ -28,6 +29,10 @@ export default async function FinaleJoin({ params }: { params: Promise<{ slug: s
     <Shell style={teamStyle(team.color)}>
       <TopBar back={`${FINALE_BASE}/${team.slug}`} />
       <Title>Join {possessive(team.name)} supporters</Title>
+      <p className="mt-2 rounded-xl bg-(--team)/10 px-3 py-2 text-sm">
+        You&apos;re backing <b>{team.name}</b>.{" "}
+        <Link href={FINALE_BASE} className="font-bold text-gold-ink underline">Not your school? Choose another</Link>
+      </p>
       <JoinForm
         team={{ id: team.id, name: team.name, semi: team.semi }}
         teams={teams.map((t) => ({

@@ -89,11 +89,14 @@ export function MatchCard({
   a,
   b,
   winnerSlug,
+  cta = "Back",
 }: {
   label: string;
   a: TeamRow;
   b: TeamRow;
   winnerSlug?: string | null;
+  /** The button on each school: "Back" while joining is open, "View" after. */
+  cta?: string;
 }) {
   const total = a.supporters + b.supporters;
   const pa = total ? Math.round((a.supporters / total) * 100) : 50;
@@ -101,25 +104,27 @@ export function MatchCard({
     <Link
       href={`${FINALE_BASE}/${t.slug}`}
       style={teamStyle(t.color)}
-      className="grid grid-cols-[10px_minmax(0,1fr)_auto_14px] items-center gap-3 px-4 py-3 hover:bg-foreground/[0.03]"
+      className="group grid grid-cols-[5px_minmax(0,1fr)_auto] items-center gap-3 py-3 pr-3 transition-colors hover:bg-(--team)/[0.06]"
     >
-      <span className="size-2.5 rounded-full bg-(--team)" />
+      <span className="self-stretch rounded-r-full bg-(--team)" />
       <span className="min-w-0">
-        <b className="block text-[15.5px]">{t.name}</b>
+        <b className="block text-[15.5px] leading-tight">{t.name}</b>
         {t.schoolName && t.schoolName !== t.name ? (
           <small className="block truncate text-xs text-muted-foreground">{t.schoolName}</small>
         ) : null}
+        <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-muted-foreground tabular-nums">
+          {winnerSlug === t.slug ? (
+            <span className="rounded-full bg-(--team) px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Through</span>
+          ) : null}
+          <span>
+            <b className="text-foreground">{t.supporters.toLocaleString("en-NG")}</b> {t.supporters === 1 ? "fan" : "fans"}
+          </span>
+          {t.pledged ? <span>· ₦{t.pledged.toLocaleString("en-NG")} pledged</span> : null}
+        </span>
       </span>
-      <span className="text-right text-[13px] font-bold tabular-nums">
-        {winnerSlug === t.slug ? (
-          <span className="mr-2 rounded-full bg-(--team) px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Through</span>
-        ) : null}
-        {t.supporters.toLocaleString("en-NG")} <span className="text-xs font-semibold text-muted-foreground">fans</span>
-        {t.pledged ? (
-          <small className="block text-[11px] font-semibold text-muted-foreground">₦{t.pledged.toLocaleString("en-NG")} pledged</small>
-        ) : null}
+      <span className="rounded-full bg-(--team) px-4 py-2 text-sm font-extrabold text-white shadow-sm transition-transform group-hover:-translate-y-px">
+        {cta}
       </span>
-      <span className="text-lg text-muted-foreground">›</span>
     </Link>
   );
   return (
