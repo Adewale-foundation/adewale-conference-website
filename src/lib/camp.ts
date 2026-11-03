@@ -74,6 +74,11 @@ export type CampWindow = {
 };
 
 /** A per-school respond_by (a replacement's extension) overrides the edition deadline. */
+/** Camp is behind us once departure has passed; the dashboard stops showing it then. */
+export function campEnded(settings: Pick<CampSettings, "departure_at">, now: Date = new Date()): boolean {
+  return !!settings.departure_at && now > new Date(settings.departure_at);
+}
+
 export function campWindow(
   settings: WindowSettings,
   confirmation: WindowConfirmation | null | undefined,

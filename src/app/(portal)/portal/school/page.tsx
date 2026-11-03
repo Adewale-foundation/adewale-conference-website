@@ -7,6 +7,7 @@ import { resubmitRegistration } from "./actions";
 import { StageResults, type StageResultRow } from "@/components/portal/stage-results";
 import CampCard from "@/components/portal/camp-card";
 import { loadMyCamp } from "@/lib/camp-data";
+import { campEnded } from "@/lib/camp";
 import { loadActingEntry } from "@/lib/acting-school-data";
 import {
   PAPER_BASE,
@@ -197,7 +198,7 @@ export default async function SchoolOverview() {
 
   return (
     <>
-      {camp ? <CampCard camp={camp} /> : null}
+      {camp && !campEnded(camp.settings) ? <CampCard camp={camp} /> : null}
 
       {/* Competition-entry status — bold and unmissable. Review happens at close
           of registration; portal/prep access is never gated by it. */}
