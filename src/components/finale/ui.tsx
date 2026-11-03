@@ -59,7 +59,7 @@ export function Dock({ children }: { children: ReactNode }) {
 }
 
 export const ctaClass =
-  "flex w-full items-center justify-center rounded-2xl px-4 py-4 text-[15px] font-extrabold transition-opacity disabled:opacity-40";
+  "flex w-full cursor-pointer items-center justify-center rounded-2xl px-4 py-4 text-[15px] font-extrabold transition-opacity disabled:cursor-not-allowed disabled:opacity-40";
 
 export function NotReady({ title, detail }: { title: string; detail: string }) {
   return (

@@ -4,11 +4,13 @@ import { useState } from "react";
 import { ctaClass } from "@/components/finale/ui";
 
 const optionClass =
-  "flex items-center justify-center rounded-xl bg-card px-3 py-3 text-sm font-bold shadow-[0_0_0_1px_rgba(10,15,30,0.1)] hover:bg-foreground/[0.03]";
+  "flex cursor-pointer items-center justify-center rounded-xl bg-card px-3 py-3 text-sm font-bold shadow-[0_0_0_1px_rgba(10,15,30,0.1)] hover:bg-foreground/[0.03]";
 
 /**
- * The phone's own share sheet where there is one (WhatsApp, Instagram, SMS, …);
- * otherwise, usually on a desktop, copy-link and the common apps.
+ * On a phone, the phone's own share sheet (WhatsApp, Instagram, SMS, …). On a
+ * laptop, copy-link and the common apps right under the button: desktop browsers
+ * that support navigator.share open the OS share menu away from the page, which
+ * reads as a button that does nothing.
  */
 export default function ShareButton({ text, url }: { text: string; url: string }) {
   const [open, setOpen] = useState(false);
@@ -17,7 +19,8 @@ export default function ShareButton({ text, url }: { text: string; url: string }
   const enc = encodeURIComponent;
 
   async function share() {
-    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    const touch = window.matchMedia("(pointer: coarse)").matches;
+    if (touch && typeof navigator.share === "function") {
       try {
         await navigator.share({ text, url });
         return;
