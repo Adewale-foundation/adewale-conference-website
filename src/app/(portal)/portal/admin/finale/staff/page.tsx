@@ -5,6 +5,7 @@ import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import AttendanceLink from "@/components/portal/attendance-link";
 import CentreLeadsPanel from "@/components/portal/centre-leads-panel";
 import FinaleTabs from "@/components/portal/finale-tabs";
+import ScanTicketsButton from "@/components/portal/scan-tickets-button";
 import { FINALE_STAFF_ROLE_LABELS, GRAND_FINALE } from "@/lib/finale-attend";
 import { loadAttendance } from "@/lib/finale-attend-data";
 import { FINALE_YEAR, finaleDb } from "@/lib/finale-data";
@@ -55,7 +56,7 @@ export default async function FinaleDoorStaff() {
       <PortalBody>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <FinaleTabs active="staff" />
-          {!canManage ? <ReadOnlyBadge /> : null}
+          {canManage ? <ScanTicketsButton /> : <ReadOnlyBadge />}
         </div>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

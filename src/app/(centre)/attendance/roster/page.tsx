@@ -4,7 +4,7 @@ import { loadSitting } from "@/lib/attendance-data";
 import { campRegister, campRegisterEntries, formatCampDay } from "@/lib/camp-attendance";
 import { loadCampMarks, loadCampPeople } from "@/lib/camp-attendance-data";
 import { createAdminClient } from "@/supabase/admin";
-import { currentLead, doorCounts, markCampPerson, markCampRemainingAbsent } from "../actions";
+import { checkInAtDoor, currentLead, doorCounts, lookupDoorTickets, markCampPerson, markCampRemainingAbsent, signOut } from "../actions";
 import FinaleDoor from "@/components/centre/finale-door";
 import AttendanceRegister from "@/components/centre/attendance-register";
 
@@ -16,7 +16,16 @@ export default async function CentreRoster() {
   if (!session) redirect("/attendance");
 
   if (session.kind === "finale") {
-    return <FinaleDoor staffName={session.lead.name} initialCounts={await doorCounts()} />;
+    return (
+      <FinaleDoor
+        staffName={session.lead.name}
+        initialCounts={await doorCounts()}
+        lookupDoorTickets={lookupDoorTickets}
+        checkInAtDoor={checkInAtDoor}
+        doorCounts={doorCounts}
+        signOut={signOut}
+      />
+    );
   }
 
   if (session.kind === "camp") {

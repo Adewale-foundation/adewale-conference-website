@@ -4,6 +4,7 @@ import ActionForm from "@/components/portal/action-form";
 import { SubmitButton } from "@/components/portal/submit-button";
 import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import FinaleTabs from "@/components/portal/finale-tabs";
+import ScanTicketsButton from "@/components/portal/scan-tickets-button";
 import { FilterBar, Pagination, clampPage, pageBounds, parsePage } from "@/components/portal/list-controls";
 import { Select } from "@/components/ui/select";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
@@ -118,7 +119,8 @@ export default async function AdminFinaleAttendees({
       <PortalBody>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <FinaleTabs active="attendees" />
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {canManage ? <ScanTicketsButton /> : null}
             <a href={ATTEND_BASE} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-gold-ink hover:underline">
               Open the public page ↗
             </a>

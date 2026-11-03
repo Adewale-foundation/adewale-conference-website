@@ -34,7 +34,7 @@ import {
 } from "@/lib/camp-attendance-data";
 import { createAdminClient } from "@/supabase/admin";
 import { doorQuery } from "@/lib/finale-attend";
-import { doorCheckIn, findDoorTickets, loadAttendance, type DoorCheckIn, type DoorTicket } from "@/lib/finale-attend-data";
+import { doorCheckIn, findDoorTickets, loadAttendance, type DoorCheckIn, type DoorCounts, type DoorLookup } from "@/lib/finale-attend-data";
 import type { AttendanceStatus } from "@/supabase/types";
 
 export type SignInResult = { ok: true } | { ok: false; error: string };
@@ -286,8 +286,6 @@ async function doorSession(): Promise<DoorSession | null> {
   return session?.kind === "finale" ? session : null;
 }
 
-export type DoorLookup = { ok: true; tickets: DoorTicket[] } | { ok: false; error: string };
-
 /** A scanned QR is the ticket URL; anything typed is a code or a name. */
 export async function lookupDoorTickets(query: string): Promise<DoorLookup> {
   const session = await doorSession();
@@ -327,7 +325,7 @@ export async function checkInFromTicket(attendeeId: string, undo: boolean, _prev
   };
 }
 
-export async function doorCounts(): Promise<{ checkedIn: number; confirmed: number } | null> {
+export async function doorCounts(): Promise<DoorCounts | null> {
   const session = await doorSession();
   if (!session) return null;
   const { totals, error } = await loadAttendance(serviceDb(), session.year);

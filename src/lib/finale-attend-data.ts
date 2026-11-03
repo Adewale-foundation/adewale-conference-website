@@ -257,6 +257,9 @@ export async function findDoorTickets(db: SupabaseClient, year: number, query: s
   return { tickets: ((data ?? []) as Parameters<typeof toDoorTicket>[0][]).map(toDoorTicket), error: null };
 }
 
+export type DoorLookup = { ok: true; tickets: DoorTicket[] } | { ok: false; error: string };
+export type DoorCounts = { checkedIn: number; confirmed: number };
+
 export type DoorCheckIn =
   | { ok: true; ticket: DoorTicket }
   | { ok: false; reason: "already"; ticket: DoorTicket }

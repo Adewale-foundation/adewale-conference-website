@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import jsQR from "jsqr";
 import { Camera, CameraOff, Search } from "lucide-react";
-import { checkInAtDoor, doorCounts, lookupDoorTickets, signOut } from "@/app/(centre)/attendance/actions";
-import type { DoorTicket } from "@/lib/finale-attend-data";
+import type { DoorCheckIn, DoorCounts, DoorLookup, DoorTicket } from "@/lib/finale-attend-data";
 
 type Result =
   | { kind: "ticket"; ticket: DoorTicket; note?: { tone: "ok" | "warn" | "bad"; text: string } }
@@ -20,8 +19,25 @@ function statusNote(t: DoorTicket): { tone: "ok" | "warn" | "bad"; text: string 
 
 const TONE = { ok: "bg-emerald-600 text-white", warn: "bg-amber-400 text-[#0A0F1E]", bad: "bg-red-600 text-white" } as const;
 
-/** One phone, one job: scan or search, see who it is, check them in. */
-export default function FinaleDoor({ staffName, initialCounts }: { staffName: string; initialCounts: { checkedIn: number; confirmed: number } | null }) {
+/** One phone, one job: scan or search, see who it is, check them in. Door staff and admins pass their own actions. */
+export default function FinaleDoor({
+  staffName,
+  initialCounts,
+  lookupDoorTickets,
+  checkInAtDoor,
+  doorCounts,
+  signOut,
+  embedded = false,
+}: {
+  staffName: string;
+  initialCounts: DoorCounts | null;
+  lookupDoorTickets: (query: string) => Promise<DoorLookup>;
+  checkInAtDoor: (attendeeId: string, undo?: boolean) => Promise<DoorCheckIn>;
+  doorCounts: () => Promise<DoorCounts | null>;
+  signOut?: () => Promise<void>;
+  /** Inside the admin portal shell rather than full-screen on a staff phone. */
+  embedded?: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -48,7 +64,7 @@ export default function FinaleDoor({ staffName, initialCounts }: { staffName: st
       else if (res.tickets.length === 1) setResult({ kind: "ticket", ticket: res.tickets[0], note: statusNote(res.tickets[0]) });
       else setResult({ kind: "list", tickets: res.tickets });
     });
-  }, []);
+  }, [lookupDoorTickets]);
 
   const startCamera = useCallback(async () => {
     setCameraError(null);
@@ -128,7 +144,7 @@ export default function FinaleDoor({ staffName, initialCounts }: { staffName: st
     });
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-4 px-4 py-5">
+    <main className={`mx-auto flex w-full max-w-md flex-col gap-4 ${embedded ? "" : "min-h-dvh px-4 py-5"}`}>
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">Grand Finale · Door check-in</p>
@@ -139,9 +155,11 @@ export default function FinaleDoor({ staffName, initialCounts }: { staffName: st
             </p>
           ) : null}
         </div>
-        <form action={signOut}>
-          <button className="text-xs font-semibold text-muted-foreground underline">Sign out</button>
-        </form>
+        {signOut ? (
+          <form action={signOut}>
+            <button className="text-xs font-semibold text-muted-foreground underline">Sign out</button>
+          </form>
+        ) : null}
       </header>
 
       <section className="overflow-hidden rounded-xl bg-[#0A0F1E]">
