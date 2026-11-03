@@ -4,7 +4,8 @@ import { loadSitting } from "@/lib/attendance-data";
 import { campRegister, campRegisterEntries, formatCampDay } from "@/lib/camp-attendance";
 import { loadCampMarks, loadCampPeople } from "@/lib/camp-attendance-data";
 import { createAdminClient } from "@/supabase/admin";
-import { currentLead, markCampPerson, markCampRemainingAbsent } from "../actions";
+import { currentLead, doorCounts, markCampPerson, markCampRemainingAbsent } from "../actions";
+import FinaleDoor from "@/components/centre/finale-door";
 import AttendanceRegister from "@/components/centre/attendance-register";
 
 export const metadata = pageMetadata("Register", "Mark attendance at your centre.");
@@ -13,6 +14,10 @@ export const dynamic = "force-dynamic";
 export default async function CentreRoster() {
   const session = await currentLead();
   if (!session) redirect("/attendance");
+
+  if (session.kind === "finale") {
+    return <FinaleDoor staffName={session.lead.name} initialCounts={await doorCounts()} />;
+  }
 
   if (session.kind === "camp") {
     const { lead, camp, day, days } = session;

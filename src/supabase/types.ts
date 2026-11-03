@@ -186,6 +186,8 @@ export interface FinaleSettings {
   /** Seats reserved for school groups; null means no cap. */
   school_capacity: number | null;
   school_respond_by: string | null;
+  /** Door staff can sign in at /attendance while true. */
+  door_open: boolean;
 }
 
 export type FinaleAttendeeRole = "teacher" | "proprietor" | "student" | "undergraduate" | "parent" | "other";
@@ -214,6 +216,8 @@ export interface FinaleAttendee {
   invited_by: string | null;
   status: FinaleAttendeeStatus;
   checked_in_at: string | null;
+  checked_in_by_lead?: string | null;
+  checked_in_by_profile?: string | null;
   created_at: string;
 }
 
@@ -567,8 +571,8 @@ export interface ExamCentre {
    *  stored qualification_zone can reach (Arigbajo, Imeko). */
   legacy_zone: string | null;
   is_active: boolean;
-  /** 'camp' is the camp venue, which staff sign in to but no school is allocated to. */
-  kind?: "exam" | "camp";
+  /** 'camp' and 'finale' are venues staff sign in to but no school is allocated to. */
+  kind?: "exam" | "camp" | "finale";
 }
 
 export const CENTRE_LEAD_ROLES = ["centre_lead", "invigilator", "materials_officer"] as const;

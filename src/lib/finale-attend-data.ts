@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import QRCode from "qrcode";
 import { buildFinaleTicketEmail, sendEmail } from "@/lib/email";
-import { GRAND_FINALE, ticketPath, type AttendeeValue } from "@/lib/finale-attend";
+import { GRAND_FINALE, normalizeRefCode, ticketPath, type AttendeeValue } from "@/lib/finale-attend";
 import { SITE_URL } from "@/lib/site";
 import type { FinaleAttendee, FinaleAttendeeSource, FinaleAttendeeStatus, FinaleSettings } from "@/supabase/types";
 
@@ -208,4 +208,82 @@ export async function loadTicket(db: SupabaseClient, refCode: string): Promise<{
     .maybeSingle();
   if (error) return { ticket: null, error: error.message };
   return { ticket: (data as PublicTicket | null) ?? null, error: null };
+}
+
+// ── Door check-in ───────────────────────────────────────────────────────────
+
+/** What door staff see: enough to recognise the group, no email or phone. */
+export type DoorTicket = {
+  id: string;
+  refCode: string;
+  name: string;
+  detail: string | null;
+  seats: number;
+  status: FinaleAttendeeStatus;
+  checkedInAt: string | null;
+};
+
+const DOOR_COLUMNS = "id, ref_code, first_name, last_name, organisation, source, seats, student_count, educators, status, checked_in_at";
+
+function toDoorTicket(r: Pick<FinaleAttendee, "id" | "ref_code" | "first_name" | "last_name" | "organisation" | "source" | "seats" | "student_count" | "educators" | "status" | "checked_in_at">): DoorTicket {
+  const school = r.source === "school";
+  const educators = (r.educators ?? []).map((e) => e.name);
+  return {
+    id: r.id,
+    refCode: r.ref_code,
+    name: school ? (r.organisation ?? `${r.first_name} ${r.last_name}`) : `${r.first_name} ${r.last_name}`,
+    detail: school
+      ? [educators.length ? educators.join(", ") : null, `${r.student_count} student${r.student_count === 1 ? "" : "s"}`].filter(Boolean).join(" · ")
+      : [r.organisation, r.student_count ? `with ${r.student_count} student${r.student_count === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ") || null,
+    seats: r.seats,
+    status: r.status,
+    checkedInAt: r.checked_in_at,
+  };
+}
+
+/** A ticket code finds one ticket; anything else searches names and schools. */
+export async function findDoorTickets(db: SupabaseClient, year: number, query: string): Promise<{ tickets: DoorTicket[]; error: string | null }> {
+  const code = normalizeRefCode(query);
+  let q = db.from("finale_attendees").select(DOOR_COLUMNS).eq("edition_year", year);
+  if (code) q = q.eq("ref_code", code);
+  else {
+    // Commas and brackets would break PostgREST's or() syntax.
+    const term = query.replace(/[,()%*\\]/g, " ").trim().slice(0, 60);
+    if (term.length < 2) return { tickets: [], error: null };
+    q = q.or(["first_name", "last_name", "organisation"].map((c) => `${c}.ilike.%${term}%`).join(",")).limit(8);
+  }
+  const { data, error } = await q.order("created_at");
+  if (error) return { tickets: [], error: error.message };
+  return { tickets: ((data ?? []) as Parameters<typeof toDoorTicket>[0][]).map(toDoorTicket), error: null };
+}
+
+export type DoorCheckIn =
+  | { ok: true; ticket: DoorTicket }
+  | { ok: false; reason: "already"; ticket: DoorTicket }
+  | { ok: false; reason: "not-confirmed" | "missing" | "error"; ticket: DoorTicket | null; error?: string };
+
+/** Only a confirmed, not-yet-used ticket checks in; the conditional update makes two scanners racing safe. */
+export async function doorCheckIn(
+  db: SupabaseClient,
+  attendeeId: string,
+  by: { leadId: string } | { profileId: string },
+  undo = false,
+): Promise<DoorCheckIn> {
+  const marker = "leadId" in by ? { checked_in_by_lead: by.leadId, checked_in_by_profile: null } : { checked_in_by_lead: null, checked_in_by_profile: by.profileId };
+  let update = db
+    .from("finale_attendees")
+    .update(undo ? { checked_in_at: null, checked_in_by_lead: null, checked_in_by_profile: null } : { checked_in_at: new Date().toISOString(), ...marker })
+    .eq("id", attendeeId)
+    .eq("status", "confirmed");
+  update = undo ? update.not("checked_in_at", "is", null) : update.is("checked_in_at", null);
+  const { data, error } = await update.select(DOOR_COLUMNS);
+  if (error) return { ok: false, reason: "error", ticket: null, error: error.message };
+  if (data?.length) return { ok: true, ticket: toDoorTicket(data[0] as Parameters<typeof toDoorTicket>[0]) };
+
+  const { data: row, error: rowError } = await db.from("finale_attendees").select(DOOR_COLUMNS).eq("id", attendeeId).maybeSingle();
+  if (rowError) return { ok: false, reason: "error", ticket: null, error: rowError.message };
+  if (!row) return { ok: false, reason: "missing", ticket: null };
+  const ticket = toDoorTicket(row as Parameters<typeof toDoorTicket>[0]);
+  if (ticket.status !== "confirmed") return { ok: false, reason: "not-confirmed", ticket };
+  return undo ? { ok: true, ticket } : { ok: false, reason: "already", ticket };
 }

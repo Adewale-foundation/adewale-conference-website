@@ -1129,6 +1129,8 @@ export function buildCentreStaffEmail(data: {
   role: string;
   /** Overrides the zonal exam date — camp staff work the camp's dates. */
   eventDate?: string;
+  /** What they do on the day; defaults to marking candidates present. */
+  task?: string;
 }): SendEmailInput {
   const subject = `Your centre register — ${data.centre}`;
   const html = render("centre-staff", `Hello ${data.name}`, {
@@ -1137,6 +1139,7 @@ export function buildCentreStaffEmail(data: {
     email: data.email,
     attendanceUrl: `${SITE_URL}/attendance`,
     eventDate: data.eventDate ?? FELLOWS_EVENT_DATE,
+    task: data.task ?? "mark each candidate present as they arrive",
     eventHours: FELLOWS_EVENT_HOURS,
   });
   return { to: [{ email: data.email, name: data.name }], subject, html };

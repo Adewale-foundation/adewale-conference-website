@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  doorQuery,
   attendState,
   attendeesCsvMatrix,
   normalizeRefCode,
@@ -201,5 +202,17 @@ describe("validateSchoolResponse", () => {
 
   it("accepts a decline without anything else", () => {
     assert.deepEqual(validateSchoolResponse({ ...yes, attending: "no" }, record), { ok: true, value: { attending: false } });
+  });
+});
+
+describe("doorQuery", () => {
+  it("reduces a scanned ticket link to its code", () => {
+    assert.equal(doorQuery("https://www.adewaleconference.org/grand-finale/ticket/GF-7K3QPM"), "GF-7K3QPM");
+    assert.equal(doorQuery("http://localhost:3000/grand-finale/ticket/GF-7K3QPM?new=1"), "GF-7K3QPM");
+    assert.equal(normalizeRefCode(doorQuery("https://x.org/grand-finale/ticket/gf-7k3qpm")), "GF-7K3QPM");
+  });
+  it("passes a typed code or name through", () => {
+    assert.equal(doorQuery(" GF-7K3QPM "), "GF-7K3QPM");
+    assert.equal(doorQuery("Lantern Model"), "Lantern Model");
   });
 });

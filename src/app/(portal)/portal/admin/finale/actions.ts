@@ -78,7 +78,11 @@ export async function checkInAttendee(attendeeId: string, undo: boolean, _prev: 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("finale_attendees")
-    .update({ checked_in_at: undo ? null : new Date().toISOString() })
+    .update(
+      undo
+        ? { checked_in_at: null, checked_in_by_lead: null, checked_in_by_profile: null }
+        : { checked_in_at: new Date().toISOString(), checked_in_by_lead: null, checked_in_by_profile: admin.user.id },
+    )
     .eq("id", attendeeId)
     .eq("status", "confirmed")
     .select("seats");
@@ -197,4 +201,21 @@ export async function draftSchoolInviteAnnouncement(year: number, _prev: ActionR
   if (error || !data) return { ok: false, error: `Could not create the draft: ${error?.message ?? "no row returned"}` };
   revalidatePath("/portal/admin/announcements");
   redirect(`/portal/admin/announcements/${(data as { id: string }).id}`);
+}
+
+/** Door staff can sign in at /attendance only while this is on. */
+export async function setFinaleDoorOpen(year: number, open: boolean, _prev: ActionResult | null, _formData: FormData): Promise<ActionResult> {
+  const admin = await requireManage("participants");
+  if (!admin) return denied;
+  const supabase = await createClient();
+  const { error } = await supabase.from("finale_settings").upsert({
+    edition_year: year,
+    door_open: open,
+    updated_by: admin.user.id,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) return { ok: false, error: `Could not save: ${error.message}` };
+  revalidatePath(`${ADMIN_FINALE_PATH}/staff`);
+  revalidatePath("/attendance");
+  return { ok: true, message: open ? "The door is open: staff can sign in." : "The door is closed: staff are signed out at their next tap." };
 }
