@@ -139,12 +139,14 @@ export function nameKey(name: string): string {
 
 /**
  * The school's educators on record: the teacher and principal from the entry
- * form (the only source with phones), then any other approved portal member.
+ * form (the only source with phones), the entry's contact (often the only link
+ * a coordinator who owns the entry has), then any other approved portal member.
  * Deduped by email or by nameKey, so a teacher who is also a member appears once.
  */
 export function educatorsOnRecord(
   details: Record<string, unknown> | null | undefined,
   members: { full_name: string | null; email: string | null }[],
+  contact: { name: string | null; email: string | null } | null = null,
 ): CampEducator[] {
   const out: CampEducator[] = [];
   const seen = new Set<string>();
@@ -158,6 +160,7 @@ export function educatorsOnRecord(
   };
   add(clean(details?.["Teacher Full Name"]), clean(details?.["Teacher Number"]), clean(details?.["Teacher Email Address"]), "teacher");
   add(clean(details?.["Principal Full Name"]), clean(details?.["Principal Number"]), clean(details?.["Principal Email Address"]), "principal");
+  if (contact) add(clean(contact.name) || clean(contact.email), "", clean(contact.email), "educator");
   for (const m of members) add(clean(m.full_name) || clean(m.email), "", clean(m.email), "educator");
   return out;
 }

@@ -555,3 +555,12 @@ describe("matchRepSlots", () => {
     assert.deepEqual(matchRepSlots(["Bello Ada Grace", "Bello Ada"], FORM), [null, 2]);
   });
 });
+
+describe("educatorsOnRecord: the entry's contact", () => {
+  it("counts a contact who has no member row, once", () => {
+    const contact = { name: "Miss Wren Fable", email: "wren@lantern.test" };
+    assert.deepEqual(educatorsOnRecord(null, [], contact).map((e) => [e.name, e.email]), [["Miss Wren Fable", "wren@lantern.test"]]);
+    const both = educatorsOnRecord(null, [{ full_name: "Wren Fable", email: "WREN@lantern.test" }], contact);
+    assert.equal(both.length, 1);
+  });
+});
