@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
   },
   // Allow HMR / dev resources when testing from a phone on the LAN (e.g. the PWA).
   // Dev-only; add your machine's current LAN IP if it changes.
-  allowedDevOrigins: ["192.168.100.14"],
+  allowedDevOrigins: ["192.168.100.14", "192.168.100.60"],
   // Sanity Studio packages must load as real Node modules, not be bundled by
   // Turbopack — bundling them breaks React context at build time.
   serverExternalPackages: ["sanity", "@sanity/vision", "styled-components"],
