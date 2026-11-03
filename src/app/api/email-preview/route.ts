@@ -3,11 +3,16 @@ import {
   buildAnnouncementEmail,
   buildCampConfirmationEmail,
   buildCampExtraDecisionEmail,
+  buildFinaleTicketEmail,
   buildRegistrationEmail,
+  FINALE_TICKET_QR_CID,
+  type EmailAttachment,
   buildSponsorshipEmail,
   sendEmail,
 } from "@/lib/email";
 import { markdownToEmailHtml } from "@/lib/markdown-email";
+import { GRAND_FINALE } from "@/lib/finale-attend";
+import QRCode from "qrcode";
 
 export const runtime = "nodejs";
 
@@ -15,7 +20,7 @@ export const runtime = "nodejs";
 //   Preview in browser:  /api/email-preview?type=registration
 //   Real test send:      /api/email-preview?type=registration&send=you@example.com
 // Types: registration (default), sponsorship, announcement, camp, camp-pending,
-// camp-approved, camp-declined.
+// camp-approved, camp-declined, finale, finale-waitlist.
 // The test send goes straight through SendGrid, independent of Airtable.
 export async function GET(request: Request) {
   if (process.env.NODE_ENV === "production") {
@@ -29,6 +34,7 @@ export async function GET(request: Request) {
   // buildRegistrationEmail now returns one message per recipient — preview the
   // teacher's copy (the one that carries the activation link).
   const email =
+    (await finalePreview(type)) ??
     campPreview(type) ??
     (type === "announcement"
       ? buildAnnouncementEmail({
@@ -74,12 +80,15 @@ export async function GET(request: Request) {
             teacherEmail: "teacher@example.com",
           })[0]);
 
+  const attachments = "attachments" in email ? (email.attachments as EmailAttachment[]) : [];
+
   if (sendTo) {
     try {
       const accepted = await sendEmail({
         to: [{ email: sendTo }],
         subject: email.subject,
         html: email.html,
+        attachments,
       });
       return NextResponse.json({ sentTo: sendTo, accepted });
     } catch (error) {
@@ -90,7 +99,10 @@ export async function GET(request: Request) {
     }
   }
 
-  return new NextResponse(email.html, {
+  // A browser can't resolve cid: images, so the preview inlines the QR instead.
+  const inline = attachments.find((a) => a.contentId === FINALE_TICKET_QR_CID);
+  const html = inline ? email.html.replace(`cid:${FINALE_TICKET_QR_CID}`, `data:image/png;base64,${inline.content}`) : email.html;
+  return new NextResponse(html, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
@@ -125,4 +137,25 @@ function campPreview(type: string) {
     });
   }
   return null;
+}
+
+async function finalePreview(type: string) {
+  if (type !== "finale" && type !== "finale-waitlist") return null;
+  const png = await QRCode.toBuffer("https://www.adewaleconference.org/grand-finale/ticket/GF-7K3QPM", { width: 260, margin: 1 });
+  return buildFinaleTicketEmail({
+    email: "teacher@example.com",
+    firstName: "Ada",
+    lastName: "Nwosu",
+    refCode: "GF-7K3QPM",
+    seats: 4,
+    studentCount: 3,
+    educators: [],
+    namedStudents: ["Chidi Okonkwo (SS 2)", "Funke Bello"],
+    status: type === "finale" ? "confirmed" : "waitlisted",
+    source: "open",
+    organisation: "Riverbend Academy",
+    event: GRAND_FINALE,
+    ticketUrl: "https://www.adewaleconference.org/grand-finale/ticket/GF-7K3QPM",
+    qrPngBase64: png.toString("base64"),
+  });
 }

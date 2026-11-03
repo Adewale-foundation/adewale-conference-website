@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
   },
   // Allow HMR / dev resources when testing from a phone on the LAN (e.g. the PWA).
   // Dev-only; add your machine's current LAN IP if it changes.
-  allowedDevOrigins: ["192.168.100.14"],
+  allowedDevOrigins: ["192.168.100.14", "192.168.100.60"],
   // Sanity Studio packages must load as real Node modules, not be bundled by
   // Turbopack — bundling them breaks React context at build time.
   serverExternalPackages: ["sanity", "@sanity/vision", "styled-components"],
@@ -30,6 +30,12 @@ const nextConfig: NextConfig = {
     "/portal/admin/editions": ["./src/emails/**/*"],
     "/portal/admin/announcements": ["./src/emails/**/*"],
     "/portal/admin/attendance": ["./src/emails/**/*"],
+    // Grand Finale tickets: the public registration action and the admin invite/resend actions.
+    "/grand-finale": ["./src/emails/**/*"],
+    "/grand-finale/**": ["./src/emails/**/*"],
+    "/portal/admin/finale": ["./src/emails/**/*"],
+    "/portal/admin/finale/**": ["./src/emails/**/*"],
+    "/portal/school/finale": ["./src/emails/**/*"],
     // The fan vote's share images read their font files at runtime.
     "/finale/**": ["./assets/fonts/**/*"],
   },

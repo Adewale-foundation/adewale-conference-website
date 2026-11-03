@@ -5,6 +5,8 @@ import { createClient } from "@/supabase/server";
 import { getSessionUser } from "@/supabase/auth";
 import { isSupabaseConfigured } from "@/supabase/env";
 import { extractYouTubeId, youTubeEmbedUrl } from "@/lib/youtube";
+import FinaleInviteCard from "@/components/portal/finale-invite-card";
+import { loadActingEntry } from "@/lib/acting-school-data";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +71,9 @@ export default async function PortalHome() {
   if (profile?.role && profile.role in AREAS) role = profile.role as Role;
 
   const area = AREAS[role];
+  // Educators get the school's Grand Finale invitation here too, not only on the school dashboard.
+  const { entry: schoolEntry, error: schoolError } = role === "coordinator" ? await loadActingEntry() : { entry: null, error: null };
+  if (schoolError) console.error("portal home: acting school", schoolError);
   const videoId = videoSetting?.value ? extractYouTubeId(videoSetting.value as string) : null;
 
   return (
@@ -78,6 +83,7 @@ export default async function PortalHome() {
         subtitle={user.email ?? undefined}
       />
       <PortalBody>
+        {schoolEntry?.school_id ? <FinaleInviteCard schoolId={schoolEntry.school_id} editionYear={schoolEntry.edition_year} /> : null}
         <Link href={area.href} className="block group">
           <Card interactive className="p-7 md:p-8">
             <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-primary">

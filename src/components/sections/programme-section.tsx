@@ -30,7 +30,7 @@ const programmeCards = [
     num: "04",
     Icon: Trophy,
     title: "The Grand Finale",
-    desc: "A landmark convergence held in October. 300 selected students and teachers gather for the main event, joined by 700 additional participants on the final day. This is where Ogun State's student community experiences what ambition feels like together, at scale, on a proper stage.",
+    desc: "A landmark convergence, this year on 19 November at the June 12 Cultural Centre, Abeokuta. 300 selected students and teachers gather for the main event, joined by 700 additional participants on the final day. This is where Ogun State's student community experiences what ambition feels like together, at scale, on a proper stage.",
   },
   {
     num: "05",

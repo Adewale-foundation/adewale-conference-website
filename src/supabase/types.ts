@@ -179,6 +179,54 @@ export interface FinaleSettings {
   reward_text: string | null;
   /** A Paystack Payment Page; pledges are taken there, not on this site. */
   pledge_url: string | null;
+  /** Whether the public may register to attend the finale. */
+  attend_open: boolean;
+  /** Seats for the public pool (open + invited); null means no cap. */
+  attend_capacity: number | null;
+  /** Seats reserved for school groups; null means no cap. */
+  school_capacity: number | null;
+  school_respond_by: string | null;
+}
+
+export type FinaleAttendeeRole = "teacher" | "proprietor" | "student" | "undergraduate" | "parent" | "other";
+export type FinaleAttendeeSource = "open" | "invited" | "school";
+export type FinaleAttendeeStatus = "confirmed" | "waitlisted" | "cancelled";
+
+export interface FinaleAttendee {
+  id: string;
+  edition_year: number;
+  ref_code: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  role: FinaleAttendeeRole;
+  organisation: string | null;
+  lga: string | null;
+  student_count: number;
+  /** Educators coming with a school group; the attendee is the one who answered. */
+  educators: FinaleGroupEducator[] | null;
+  educator_count: number;
+  seats: number;
+  source: FinaleAttendeeSource;
+  school_id: string | null;
+  registration_id: string | null;
+  invited_by: string | null;
+  status: FinaleAttendeeStatus;
+  checked_in_at: string | null;
+  created_at: string;
+}
+
+export type FinaleGroupEducator = { name: string; phone: string | null; email: string | null };
+
+export interface FinaleAttendeeStudent {
+  id: string;
+  attendee_id: string;
+  /** Set when the school ticked one of its registered students. */
+  student_id: string | null;
+  full_name: string;
+  class: string | null;
+  sort: number;
 }
 
 export type FinalePublicStatus = "visible" | "held" | "hidden";

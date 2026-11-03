@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  campEnded,
   CAMP_ATTENDEE_PHONE_COLUMNS,
   campAttendees,
   campAttendeesCsvMatrix,
@@ -553,5 +554,23 @@ describe("matchRepSlots", () => {
 
   it("lets an exact name claim its slot before a near match can", () => {
     assert.deepEqual(matchRepSlots(["Bello Ada Grace", "Bello Ada"], FORM), [null, 2]);
+  });
+});
+
+describe("campEnded", () => {
+  it("is over only after departure, and never without a departure date", () => {
+    const settings = { departure_at: "2026-10-28T15:00:00+01:00" };
+    assert.equal(campEnded(settings, new Date("2026-10-28T14:00:00+01:00")), false);
+    assert.equal(campEnded(settings, new Date("2026-10-29T09:00:00+01:00")), true);
+    assert.equal(campEnded({ departure_at: null }, new Date("2030-01-01")), false);
+  });
+});
+
+describe("educatorsOnRecord: the entry's contact", () => {
+  it("counts a contact who has no member row, once", () => {
+    const contact = { name: "Miss Wren Fable", email: "wren@lantern.test" };
+    assert.deepEqual(educatorsOnRecord(null, [], contact).map((e) => [e.name, e.email]), [["Miss Wren Fable", "wren@lantern.test"]]);
+    const both = educatorsOnRecord(null, [{ full_name: "Wren Fable", email: "WREN@lantern.test" }], contact);
+    assert.equal(both.length, 1);
   });
 });

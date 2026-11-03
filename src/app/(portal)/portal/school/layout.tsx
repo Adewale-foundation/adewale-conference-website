@@ -6,6 +6,8 @@ import { isSupabaseConfigured } from "@/supabase/env";
 import { isCampEligible } from "@/lib/camp";
 import { loadActingEntry } from "@/lib/acting-school-data";
 import SchoolSwitcher from "@/components/portal/school-switcher";
+import { schoolInviteState } from "@/lib/finale-attend";
+import { FINALE_YEAR } from "@/lib/finale-data";
 
 export default async function SchoolLayout({
   children,
@@ -45,6 +47,8 @@ export default async function SchoolLayout({
     : { data: null, error: null };
   if (manualError) console.error("camp invite", manualError.message);
   const showCamp = isCampEligible(reg?.status ?? null, reg?.stageResults ?? null, Boolean(manual));
+  // Every school this edition sees the Grand Finale until it is over; only the end date matters here.
+  const showFinale = reg?.edition_year === FINALE_YEAR && schoolInviteState(null) !== "over";
 
   return (
     <div className="px-4 md:px-6 py-6 md:py-8">
@@ -58,7 +62,7 @@ export default async function SchoolLayout({
         <SchoolSwitcher choices={choices} current={reg?.school_id ?? null} />
         <div className="flex flex-col md:flex-row md:gap-6">
           <aside className="md:w-56 shrink-0">
-            <SchoolSidebar showCamp={showCamp} />
+            <SchoolSidebar showCamp={showCamp} showFinale={showFinale} />
           </aside>
           <div className="flex-1 min-w-0 space-y-6 pb-24 md:pb-0">{children}</div>
         </div>

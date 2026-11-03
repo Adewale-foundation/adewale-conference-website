@@ -13,7 +13,7 @@ const faqItems = [
   },
   {
     q: "What happens if our school wins the zonal stage?",
-    a: "Schools that qualify through the zonal stage advance to the October Grand Finale. Travel and accommodation for qualifying student teams and their supervising teacher are covered in full by the ASC programme.",
+    a: "Schools that qualify through the zonal stage advance to the Grand Finale on 19 November. Travel and accommodation for qualifying student teams and their supervising teacher are covered in full by the ASC programme.",
   },
   {
     q: "What schools can participate?",

@@ -21,6 +21,9 @@ export interface EmailAttachment {
   filename: string;
   content: string;
   type?: string;
+  /** With `contentId`, shown in the body via `cid:` — Gmail strips `data:` images. */
+  disposition?: "attachment" | "inline";
+  contentId?: string;
 }
 
 interface SendEmailInput {
@@ -163,8 +166,17 @@ export async function sendEmail({
       { type: "text/plain", value: text },
       { type: "text/html", value: html },
     ],
-    // SendGrid carries attachments on the message, not per personalization.
-    ...(attachments?.length ? { attachments } : {}),
+    // SendGrid carries attachments on the message, not per personalization. The client does not
+    // snake-case inside the attachments array, so `contentId` would reach the API unnamed and an
+    // inline image is rejected (400: content_id is required).
+    ...(attachments?.length
+      ? {
+          attachments: attachments.map(({ contentId, ...a }) => ({
+            ...a,
+            ...(contentId ? { content_id: contentId } : {}),
+          })) as MailDataRequired["attachments"],
+        }
+      : {}),
   };
 
   const [response] = await sendgrid.send(mail);
@@ -674,6 +686,81 @@ export function buildCampConfirmationEmail(data: {
     portalUrl: getPortalLoginUrl("/portal/school/camp"),
   });
   return { to: campEmailTo(data.email, data.name), subject: `Camp place secured — ${data.schoolFullName}`, html };
+}
+
+// ── Grand Finale tickets ──────────────────────────────────────────────────
+
+export const FINALE_TICKET_QR_CID = "finale-ticket-qr";
+
+export function buildFinaleTicketEmail(data: {
+  email: string;
+  firstName: string;
+  lastName: string;
+  refCode: string;
+  seats: number;
+  studentCount: number;
+  /** A school group's educators; empty for a single registration. */
+  educators: string[];
+  namedStudents: string[];
+  status: "confirmed" | "waitlisted";
+  source: "open" | "invited" | "school";
+  organisation: string | null;
+  event: { dateLabel: string; timeLabel: string; venue: string; venueArea: string; mapUrl: string };
+  ticketUrl: string;
+  qrPngBase64: string | null;
+}) {
+  const waiting = data.status === "waitlisted";
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const seatText = data.educators.length
+    ? `${data.seats} seats: ${plural(data.educators.length, "educator")} and ${plural(data.studentCount, "student")}`
+    : data.studentCount
+      ? `${data.seats} seats: you and ${plural(data.studentCount, "student")}`
+      : "1 seat";
+  const qr = data.qrPngBase64 && !waiting
+    ? `<td style="width:150px;padding:18px;text-align:center;background:#FFFFFF;vertical-align:middle;"><img src="cid:${FINALE_TICKET_QR_CID}" width="130" height="130" alt="QR code for ${escapeHtml(data.refCode)}" style="display:block;margin:0 auto;"></td>`
+    : "";
+  const ticketBlock = `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:${waiting ? "#FFF4DE" : "#EAF6EE"};border:1px solid ${waiting ? "#E8A020" : "#2E8B57"};margin:0 0 22px;"><tr>
+<td style="padding:18px;vertical-align:top;">
+<p class="body-font" style="margin:0 0 10px;font-size:11px;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;color:${waiting ? "#8a5e0e" : "#1F6B40"};">${waiting ? "On the waitlist" : "Seats secured"}</p>
+<p class="body-font" style="margin:0 0 6px;font-size:14px;line-height:22px;color:#4A4E5C;"><strong style="color:#0A0F1E;">Name:</strong> ${escapeHtml(`${data.firstName} ${data.lastName}`)}</p>
+${data.organisation ? `<p class="body-font" style="margin:0 0 6px;font-size:14px;line-height:22px;color:#4A4E5C;"><strong style="color:#0A0F1E;">School or organisation:</strong> ${escapeHtml(data.organisation)}</p>` : ""}
+<p class="body-font" style="margin:0 0 6px;font-size:14px;line-height:22px;color:#4A4E5C;"><strong style="color:#0A0F1E;">Seats:</strong> ${seatText}</p>
+${data.educators.length ? `<p class="body-font" style="margin:0 0 6px;font-size:14px;line-height:22px;color:#4A4E5C;"><strong style="color:#0A0F1E;">Educators:</strong> ${data.educators.map(escapeHtml).join(", ")}</p>` : ""}
+${data.namedStudents.length ? `<p class="body-font" style="margin:0 0 6px;font-size:14px;line-height:22px;color:#4A4E5C;"><strong style="color:#0A0F1E;">Students named:</strong> ${data.namedStudents.map(escapeHtml).join(", ")}</p>` : ""}
+<p class="body-font" style="margin:12px 0 0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#4A4E5C;">Ticket code</p>
+<p style="margin:2px 0 0;font-family:'Courier New',monospace;font-size:26px;font-weight:bold;letter-spacing:0.08em;color:#0A0F1E;">${escapeHtml(data.refCode)}</p>
+</td>${qr}</tr></table>`;
+
+  const intro = waiting
+    ? data.source === "school"
+      ? `Thank you for accepting the Grand Finale invitation. The seats for schools are taken right now, so your school is on the waitlist. We will email you the moment seats open.`
+      : `Thank you for registering for the ASC Grand Finale. The hall is full right now, so you are on the waitlist. We will email you the moment seats open.`
+    : data.source === "invited"
+      ? `You're invited to the ASC Grand Finale. Your seats are held under the ticket code below.`
+      : data.source === "school"
+        ? `Thank you for accepting the Grand Finale invitation. Your school's seats are confirmed.`
+        : `Your seats at the ASC Grand Finale are secured.`;
+  const bodyBlock = waiting
+    ? `<p class="body-font" style="${CAMP_P}">Please don't travel on a waitlist place. Wait for the email that confirms your seats.</p>`
+    : `<p class="body-font" style="${CAMP_P}">Show the QR code or say your ticket code at the door. ${data.studentCount ? "Arrive with your students and check in as one group; your ticket covers all of them. Students should wear their school uniform." : ""} Seats not claimed by 10:15am may be released to the waitlist.</p>`;
+
+  const html = render("finale-ticket", waiting ? "You're on the waitlist" : data.source === "invited" ? "You're invited" : "Seats secured", {
+    intro,
+    ticketBlock,
+    bodyBlock,
+    ...data.event,
+    ticketUrl: data.ticketUrl,
+  });
+  const attachments: EmailAttachment[] =
+    data.qrPngBase64 && !waiting
+      ? [{ filename: `${data.refCode}.png`, content: data.qrPngBase64, type: "image/png", disposition: "inline", contentId: FINALE_TICKET_QR_CID }]
+      : [];
+  return {
+    to: [{ email: data.email, name: `${data.firstName} ${data.lastName}` }],
+    subject: waiting ? `Grand Finale waitlist: ${data.refCode}` : `Your Grand Finale ticket: ${data.refCode}`,
+    html,
+    attachments,
+  };
 }
 
 /** A one-off camp notice to a school (a correction or a reminder), in the camp email's frame. */

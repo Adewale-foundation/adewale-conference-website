@@ -21,6 +21,7 @@ import {
   UserRoundCheck,
   HandCoins,
   Settings,
+  Ticket,
 } from "lucide-react";
 import PortalSidebar, { type SidebarConfig, type NavLink } from "@/components/portal/portal-sidebar";
 import type { AdminPermissionsMap } from "@/supabase/types";
@@ -42,6 +43,7 @@ const SCHOOLS: NavLink = { href: "/portal/admin/schools", label: "Schools", icon
 const PARTICIPANTS: NavLink = { href: "/portal/admin/participants", label: "Participants", icon: UserRound, short: "People", module: "participants" };
 const REPLACEMENTS: NavLink = { href: "/portal/admin/replacements", label: "Replacements", icon: UserRoundCheck, short: "Swaps", module: "registrations" };
 const PAPER_EXAMS: NavLink = { href: "/portal/admin/paper-exams", label: "Paper exams", icon: ScanLine, short: "Paper", module: "participants" };
+const GRAND_FINALE: NavLink = { href: "/portal/admin/finale", label: "Grand Finale", icon: Ticket, short: "Finale", module: "participants" };
 const ATTENDANCE: NavLink = { href: "/portal/admin/attendance", label: "Attendance", icon: UserCheck, short: "Here", module: "participants" };
 const INFO_CHANGES: NavLink = { href: "/portal/admin/info-changes", label: "Contact corrections", icon: ContactRound, short: "Fixes", module: "registrations" };
 const SPONSORS: NavLink = { href: "/portal/admin/sponsors", label: "Sponsors", icon: HandCoins, module: "team" };
@@ -55,11 +57,11 @@ const CONFIG: SidebarConfig = {
   groups: [
     { title: "Insights", links: [ANALYTICS] },
     { title: "Program", links: [EDITIONS, REGISTRATIONS, WAITLIST, ANNOUNCEMENTS, ASSESSMENTS, LABS, CHALLENGES, QUESTION_BANK, RESOURCES] },
-    { title: "People", links: [PARTICIPANTS, PAPER_EXAMS, ATTENDANCE, REPLACEMENTS, INFO_CHANGES, USERS, SCHOOLS, SPONSORS] },
+    { title: "People", links: [PARTICIPANTS, PAPER_EXAMS, ATTENDANCE, GRAND_FINALE, REPLACEMENTS, INFO_CHANGES, USERS, SCHOOLS, SPONSORS] },
     { title: "Site", links: [SETTINGS] },
   ],
   bottom: [OVERVIEW, ANALYTICS, REGISTRATIONS, USERS],
-  more: [ANNOUNCEMENTS, ASSESSMENTS, PAPER_EXAMS, ATTENDANCE, PARTICIPANTS, REPLACEMENTS, INFO_CHANGES, EDITIONS, WAITLIST, LABS, CHALLENGES, QUESTION_BANK, RESOURCES, SCHOOLS, SPONSORS, SETTINGS],
+  more: [ANNOUNCEMENTS, ASSESSMENTS, PAPER_EXAMS, ATTENDANCE, GRAND_FINALE, PARTICIPANTS, REPLACEMENTS, INFO_CHANGES, EDITIONS, WAITLIST, LABS, CHALLENGES, QUESTION_BANK, RESOURCES, SCHOOLS, SPONSORS, SETTINGS],
 };
 
 // A link is shown when it has no module (always-open, e.g. Overview / Sponsors)

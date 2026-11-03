@@ -37,7 +37,7 @@ export async function loadEducatorsOnRecord(
 ): Promise<{ educators: CampEducator[]; error: string | null }> {
   const { data: reg, error } = await supabase
     .from("registrations")
-    .select("school_id, details")
+    .select("school_id, details, contact_name, contact_email")
     .eq("id", registrationId)
     .maybeSingle();
   if (error) return { educators: [], error: error.message };
@@ -55,6 +55,7 @@ export async function loadEducatorsOnRecord(
     educators: educatorsOnRecord(
       reg.details as Record<string, unknown> | null,
       (members ?? []) as { full_name: string | null; email: string | null }[],
+      { name: reg.contact_name as string | null, email: reg.contact_email as string | null },
     ),
     error: null,
   };
