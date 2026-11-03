@@ -13,7 +13,7 @@ const dateSteps = [
   },
   {
     num: "03",
-    when: "October 2026",
+    when: "19 November 2026",
     title: "Grand Finale",
     desc: "The main event. 300 selected students and teachers. 700 participants on the final day. Keynote address, STEM finals, Innovation Pitch, panel, and scholarship awards.",
   },

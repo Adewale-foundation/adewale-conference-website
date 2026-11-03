@@ -39,6 +39,20 @@
   to { transform: translateX(-50%); }
 }
 
+/* Countdown tiles: the new value rolls in from above as the old one rolls out below. */
+@keyframes roll-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes roll-out {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(100%); opacity: 0; }
+}
+@keyframes colon {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
 /* Chevron for the shared Select primitive. A background-image can't take
    currentColor, so light and dark surfaces each get a baked fill. The path is
    the one the sponsorship form used to draw by hand. */

@@ -116,6 +116,7 @@ const ROUTE_MODULES: { prefix: string; module: PermissionModule }[] = [
   { prefix: "/portal/admin/schools", module: "registrations" },
   { prefix: "/portal/admin/participants", module: "participants" },
   { prefix: "/portal/admin/attendance", module: "participants" },
+  { prefix: "/portal/admin/finale", module: "participants" },
   { prefix: "/portal/admin/replacements", module: "participants" },
   { prefix: "/portal/admin/paper-exams", module: "participants" },
   { prefix: "/portal/admin/papers", module: "participants" },

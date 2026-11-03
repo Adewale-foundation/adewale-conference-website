@@ -16,6 +16,7 @@ export const PLATFORM_PAGES = [
   { path: "/schools", label: "Schools" },
   { path: "/sponsors", label: "Sponsors" },
   { path: "/fellows", label: "Fellows Programme" },
+  { path: "/grand-finale", label: "Grand Finale" },
   { path: "/finale", label: "Grand Finale fan vote" },
   { path: "/faq", label: "FAQ" },
   { path: "/contact", label: "Contact" },
@@ -40,6 +41,7 @@ export const MAIN_NAV: readonly NavEntry[] = [
   {
     label: "Get Involved",
     items: [
+      { label: "Grand Finale", href: "/grand-finale" },
       { label: "Grand Finale fan vote", href: "/finale" },
       { label: "Fellows Programme", href: "/fellows" },
       { label: "Sponsors", href: "/sponsors" },

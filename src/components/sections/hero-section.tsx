@@ -14,7 +14,7 @@ const tickerItems = [
   "₦25M+ in Scholarships Awarded",
   "Registration Opens May 1st",
   "Zonal Stage: June-July 2026",
-  "Grand Finale: October 2026",
+  "Grand Finale: 19 November 2026, Abeokuta",
   "Open to All Secondary Schools in Ogun State"
 ];
 

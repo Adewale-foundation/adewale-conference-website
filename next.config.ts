@@ -30,6 +30,12 @@ const nextConfig: NextConfig = {
     "/portal/admin/editions": ["./src/emails/**/*"],
     "/portal/admin/announcements": ["./src/emails/**/*"],
     "/portal/admin/attendance": ["./src/emails/**/*"],
+    // Grand Finale tickets: the public registration action and the admin invite/resend actions.
+    "/grand-finale": ["./src/emails/**/*"],
+    "/grand-finale/**": ["./src/emails/**/*"],
+    "/portal/admin/finale": ["./src/emails/**/*"],
+    "/portal/admin/finale/**": ["./src/emails/**/*"],
+    "/portal/school/finale": ["./src/emails/**/*"],
     // The fan vote's share images read their font files at runtime.
     "/finale/**": ["./assets/fonts/**/*"],
   },

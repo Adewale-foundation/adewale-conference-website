@@ -10,7 +10,7 @@ import type { ActionResult } from "@/app/(portal)/portal/admin/paper-exams/actio
 import type { FinalePublicStatus, FinaleTeamColor } from "@/supabase/types";
 
 const denied: ActionResult = { ok: false, error: "You have read-only access to participants." };
-const ADMIN_PATH = "/portal/admin/participants/finale";
+const ADMIN_PATH = "/portal/admin/finale/fan-vote";
 
 function refresh() {
   revalidatePath(ADMIN_PATH);

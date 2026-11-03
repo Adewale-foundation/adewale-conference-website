@@ -8,6 +8,7 @@ import SponsorshipSection from "@/components/sections/sponsorship-section";
 import FounderSection from "@/components/sections/founder-section";
 import RegistrationSection from "@/components/sections/registration-section";
 import FaqSection from "@/components/sections/faq-section";
+import FinaleNotice from "@/components/sections/finale-notice";
 import { getRegistrationOpen } from "@/lib/edition-state";
 
 // Regenerated every 60s so admin opening/closing registration (Portal →
@@ -19,6 +20,7 @@ export default async function HomePage() {
   const { open } = await getRegistrationOpen();
   return (
     <>
+      <FinaleNotice />
       <HeroSection />
       <AboutSection />
       <ImpactSection />
