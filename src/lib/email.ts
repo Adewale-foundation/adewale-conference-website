@@ -21,6 +21,9 @@ export interface EmailAttachment {
   filename: string;
   content: string;
   type?: string;
+  /** With `contentId`, shown in the body via `cid:` — Gmail strips `data:` images. */
+  disposition?: "attachment" | "inline";
+  contentId?: string;
 }
 
 interface SendEmailInput {
@@ -163,8 +166,17 @@ export async function sendEmail({
       { type: "text/plain", value: text },
       { type: "text/html", value: html },
     ],
-    // SendGrid carries attachments on the message, not per personalization.
-    ...(attachments?.length ? { attachments } : {}),
+    // SendGrid carries attachments on the message, not per personalization. The client does not
+    // snake-case inside the attachments array, so `contentId` would reach the API unnamed and an
+    // inline image is rejected (400: content_id is required).
+    ...(attachments?.length
+      ? {
+          attachments: attachments.map(({ contentId, ...a }) => ({
+            ...a,
+            ...(contentId ? { content_id: contentId } : {}),
+          })) as MailDataRequired["attachments"],
+        }
+      : {}),
   };
 
   const [response] = await sendgrid.send(mail);
