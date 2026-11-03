@@ -7,6 +7,7 @@ import { loadTicket, ticketQrSvg } from "@/lib/finale-attend-data";
 import { finaleDb } from "@/lib/finale-data";
 import { canManageModule } from "@/supabase/auth";
 import { checkInAttendee } from "@/app/(portal)/portal/admin/finale/actions";
+import { checkInFromTicket, currentLead } from "@/app/(centre)/attendance/actions";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +28,10 @@ export default async function TicketPage({
   if (error) throw new Error(`Could not load the ticket: ${error}`);
   if (!ticket) notFound();
 
-  // The QR opens this page, so door staff signed in to the portal check people in here.
-  const [qr, canCheckIn] = await Promise.all([ticketQrSvg(ticket.ref_code), canManageModule("participants")]);
+  // The QR opens this page, so door staff (signed in at /attendance) and admins check people in here.
+  const [qr, isAdmin, lead] = await Promise.all([ticketQrSvg(ticket.ref_code), canManageModule("participants"), currentLead()]);
+  const isDoorStaff = lead?.kind === "finale";
+  const canCheckIn = isAdmin || isDoorStaff;
   const waiting = ticket.status === "waitlisted";
   const cancelled = ticket.status === "cancelled";
 
@@ -88,7 +91,11 @@ export default async function TicketPage({
         {canCheckIn && ticket.status === "confirmed" ? (
           <div className="mt-8 rounded-md border border-primary/50 bg-[#141B2E] p-5">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-primary">Door check-in (staff)</p>
-            <ActionForm action={checkInAttendee.bind(null, ticket.id, !!ticket.checked_in_at)} className="mt-3" successClassName="text-sm text-[#F0EAD8]/80">
+            <ActionForm
+              action={isDoorStaff ? checkInFromTicket.bind(null, ticket.id, !!ticket.checked_in_at) : checkInAttendee.bind(null, ticket.id, !!ticket.checked_in_at)}
+              className="mt-3"
+              successClassName="text-sm text-[#F0EAD8]/80"
+            >
               <SubmitButton size="sm" pendingText="Saving…">
                 {ticket.checked_in_at ? "Undo check-in" : `Check in ${ticket.seats} seat${ticket.seats === 1 ? "" : "s"}`}
               </SubmitButton>

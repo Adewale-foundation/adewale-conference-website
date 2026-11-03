@@ -53,6 +53,7 @@ export default async function CentreAttendance({
   if (centreError) throw new Error(centreError.message);
   if (!centre) notFound();
   if (centre.kind === "camp") redirect(`/portal/admin/attendance/camp?edition=${centre.edition_year}`);
+  if (centre.kind === "finale") redirect("/portal/admin/finale/staff");
   const venue = centre as ExamCentre;
 
   // Read before the sitting check: "who is running this hall" is the question

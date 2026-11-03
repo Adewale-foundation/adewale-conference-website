@@ -5,9 +5,18 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/supabase/server";
 import { requireManage } from "@/supabase/auth";
 import { lagosInputToIso } from "@/lib/camp";
-import { ATTEND_BASE, GRAND_FINALE, SCHOOL_FINALE_PATH, SOURCE_LABELS, validateAttendee } from "@/lib/finale-attend";
-import { registerAttendee, sendTicket } from "@/lib/finale-attend-data";
-import { finaleDb } from "@/lib/finale-data";
+import { ATTEND_BASE, GRAND_FINALE, SCHOOL_FINALE_PATH, SOURCE_LABELS, doorQuery, validateAttendee } from "@/lib/finale-attend";
+import {
+  doorCheckIn,
+  findDoorTickets,
+  loadAttendance,
+  registerAttendee,
+  sendTicket,
+  type DoorCheckIn,
+  type DoorCounts,
+  type DoorLookup,
+} from "@/lib/finale-attend-data";
+import { FINALE_YEAR, finaleDb } from "@/lib/finale-data";
 import { SITE_URL } from "@/lib/site";
 import type { ActionResult } from "@/app/(portal)/portal/admin/paper-exams/actions";
 import type { FinaleAttendeeSource, FinaleAttendeeStatus } from "@/supabase/types";
@@ -78,7 +87,11 @@ export async function checkInAttendee(attendeeId: string, undo: boolean, _prev: 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("finale_attendees")
-    .update({ checked_in_at: undo ? null : new Date().toISOString() })
+    .update(
+      undo
+        ? { checked_in_at: null, checked_in_by_lead: null, checked_in_by_profile: null }
+        : { checked_in_at: new Date().toISOString(), checked_in_by_lead: null, checked_in_by_profile: admin.user.id },
+    )
     .eq("id", attendeeId)
     .eq("status", "confirmed")
     .select("seats");
@@ -197,4 +210,52 @@ export async function draftSchoolInviteAnnouncement(year: number, _prev: ActionR
   if (error || !data) return { ok: false, error: `Could not create the draft: ${error?.message ?? "no row returned"}` };
   revalidatePath("/portal/admin/announcements");
   redirect(`/portal/admin/announcements/${(data as { id: string }).id}`);
+}
+
+/** Door staff can sign in at /attendance only while this is on. */
+export async function setFinaleDoorOpen(year: number, open: boolean, _prev: ActionResult | null, _formData: FormData): Promise<ActionResult> {
+  const admin = await requireManage("participants");
+  if (!admin) return denied;
+  const supabase = await createClient();
+  const { error } = await supabase.from("finale_settings").upsert({
+    edition_year: year,
+    door_open: open,
+    updated_by: admin.user.id,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) return { ok: false, error: `Could not save: ${error.message}` };
+  revalidatePath(`${ADMIN_FINALE_PATH}/staff`);
+  revalidatePath("/attendance");
+  return { ok: true, message: open ? "The door is open: staff can sign in." : "The door is closed: staff are signed out at their next tap." };
+}
+
+// ── Admin scanner: the door-staff screen, gated on participants manage ──────
+
+export async function adminLookupDoorTickets(query: string): Promise<DoorLookup> {
+  if (!(await requireManage("participants"))) return { ok: false, error: "You have read-only access to participants." };
+  const db = finaleDb();
+  if (!db) return { ok: false, error: "Check-in needs SUPABASE_SECRET_KEY to be set." };
+  const { tickets, error } = await findDoorTickets(db, FINALE_YEAR, doorQuery(query));
+  return error ? { ok: false, error: "Could not search tickets. Try again." } : { ok: true, tickets };
+}
+
+export async function adminCheckInAtDoor(attendeeId: string, undo = false): Promise<DoorCheckIn> {
+  const admin = await requireManage("participants");
+  if (!admin) return { ok: false, reason: "error", ticket: null, error: "You have read-only access to participants." };
+  const db = finaleDb();
+  if (!db) return { ok: false, reason: "error", ticket: null, error: "Check-in needs SUPABASE_SECRET_KEY to be set." };
+  const { data, error } = await db.from("finale_attendees").select("id").eq("id", attendeeId).eq("edition_year", FINALE_YEAR).maybeSingle();
+  if (error) return { ok: false, reason: "error", ticket: null, error: error.message };
+  if (!data) return { ok: false, reason: "missing", ticket: null };
+  const result = await doorCheckIn(db, attendeeId, { profileId: admin.user.id }, undo);
+  refresh();
+  return result;
+}
+
+export async function adminDoorCounts(): Promise<DoorCounts | null> {
+  if (!(await requireManage("participants"))) return null;
+  const db = finaleDb();
+  if (!db) return null;
+  const { totals, error } = await loadAttendance(db, FINALE_YEAR);
+  return error ? null : { checkedIn: totals.checkedIn, confirmed: totals.confirmed + totals.schoolConfirmed };
 }

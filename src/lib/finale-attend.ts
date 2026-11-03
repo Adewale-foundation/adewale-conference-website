@@ -1,6 +1,7 @@
 import { cleanText, normalizeNgPhone } from "@/lib/finale";
 import { LGA_OPTIONS } from "@/lib/forms";
 import type {
+  CentreLeadRole,
   FinaleAttendee,
   FinaleAttendeeRole,
   FinaleAttendeeSource,
@@ -44,6 +45,13 @@ export const STATUS_LABELS: Record<FinaleAttendeeStatus, string> = {
   confirmed: "Confirmed",
   waitlisted: "Waitlisted",
   cancelled: "Cancelled",
+};
+
+/** Door staff reuse centre_leads, whose roles are named for exam day. */
+export const FINALE_STAFF_ROLE_LABELS: Record<CentreLeadRole, string> = {
+  centre_lead: "Door lead",
+  invigilator: "Check-in staff",
+  materials_officer: "Usher",
 };
 
 export const ATTEND_LGA_OPTIONS = [...LGA_OPTIONS, "Outside Ogun State"] as const;
@@ -101,6 +109,12 @@ export function normalizeRefCode(raw: unknown): string | null {
   const compact = raw.toUpperCase().replace(/[\s-]/g, "");
   const code = `GF-${compact.startsWith("GF") ? compact.slice(2) : compact}`;
   return REF_CODE.test(code) ? code : null;
+}
+
+/** What a door scan or search box holds: the ticket link (the QR's content) is reduced to its code; anything else passes through. */
+export function doorQuery(raw: string): string {
+  const fromLink = /\/grand-finale\/ticket\/([^/?#\s]+)/.exec(raw)?.[1];
+  return (fromLink ? decodeURIComponent(fromLink) : raw).trim();
 }
 
 export function ticketPath(refCode: string): string {

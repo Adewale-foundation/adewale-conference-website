@@ -10,6 +10,7 @@ import {
   type RosterEntry,
 } from "@/lib/attendance";
 import { openCampAttendance, type OpenCamp } from "@/lib/camp-attendance-data";
+import { FINALE_YEAR } from "@/lib/finale-data";
 import type { AttendanceStatus, CentreLead, ExamCentre } from "@/supabase/types";
 
 /**
@@ -89,13 +90,31 @@ export async function openCamp(): Promise<OpenCamp | null> {
   return openCampAttendance(db());
 }
 
-/** What the sign-in page offers: the open sitting's venues, and the camp while its register is open. */
+export type OpenFinaleDoor = { edition_year: number };
+
+/** The Grand Finale door while an admin has it open. A read error (migration not pushed) reads as closed. */
+export async function openFinaleDoor(): Promise<OpenFinaleDoor | null> {
+  const { data, error } = await db()
+    .from("finale_settings")
+    .select("edition_year")
+    .eq("edition_year", FINALE_YEAR)
+    .eq("door_open", true)
+    .maybeSingle();
+  if (error) {
+    console.error("finale door", error.message);
+    return null;
+  }
+  return (data as OpenFinaleDoor) ?? null;
+}
+
+/** What the sign-in page offers: the open sitting's venues, the camp and the Grand Finale while each is open. */
 export async function signInCentres(): Promise<{
   exam: OpenExam | null;
   camp: OpenCamp | null;
+  finale: OpenFinaleDoor | null;
   centres: ExamCentre[];
 }> {
-  const [exam, camp] = await Promise.all([openAttendanceExam(), openCamp()]);
+  const [exam, camp, finale] = await Promise.all([openAttendanceExam(), openCamp(), openFinaleDoor()]);
   const centres = exam ? await listCentres(exam.edition_year) : [];
   if (camp) {
     const { data, error } = await db()
@@ -107,7 +126,17 @@ export async function signInCentres(): Promise<{
     if (error) throw new Error(error.message);
     if (data) centres.unshift(data as ExamCentre);
   }
-  return { exam, camp, centres: centres.filter((c) => c.is_active) };
+  if (finale) {
+    const { data, error } = await db()
+      .from("exam_centres")
+      .select(CENTRE_COLUMNS)
+      .eq("edition_year", finale.edition_year)
+      .eq("kind", "finale")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (data) centres.unshift(data as ExamCentre);
+  }
+  return { exam, camp, finale, centres: centres.filter((c) => c.is_active) };
 }
 
 export type LeadWithCentre = CentreLead & { centre: ExamCentre };

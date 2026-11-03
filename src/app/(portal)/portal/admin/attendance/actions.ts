@@ -12,6 +12,7 @@ import {
   CENTRE_LEAD_ROLE_LABELS,
   type CentreLeadRole,
 } from "@/supabase/types";
+import { FINALE_STAFF_ROLE_LABELS, GRAND_FINALE } from "@/lib/finale-attend";
 
 const MODULE = "participants" as const;
 
@@ -22,6 +23,7 @@ const denied: ActionResult = { ok: false, error: "You have read-only access to p
 function refresh() {
   revalidatePath("/portal/admin/attendance");
   revalidatePath("/portal/admin/attendance/camp");
+  revalidatePath("/portal/admin/finale/staff");
   revalidatePath("/attendance/roster");
 }
 
@@ -320,6 +322,8 @@ export async function emailLead(
   }
 
   let eventDate: string | undefined;
+  const finale = row.exam_centres.kind === "finale";
+  if (finale) eventDate = `${GRAND_FINALE.dateLabel}, doors from 9am`;
   if (row.exam_centres.kind === "camp") {
     const { data: camp, error: campError } = await supabase
       .from("camp_settings")
@@ -340,8 +344,9 @@ export async function emailLead(
       name: row.name,
       email: row.email,
       centre: `${row.exam_centres.name}, ${row.exam_centres.town}`,
-      role: CENTRE_LEAD_ROLE_LABELS[row.role],
+      role: (finale ? FINALE_STAFF_ROLE_LABELS : CENTRE_LEAD_ROLE_LABELS)[row.role],
       eventDate,
+      ...(finale ? { task: "scan each guest's ticket QR code and check them in" } : {}),
     }),
   );
 

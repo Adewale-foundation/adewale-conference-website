@@ -82,8 +82,8 @@ export default async function AdminAttendance({
         .order("name"),
     ]);
 
-  // Camp staff are managed on the camp page.
-  const campIds = new Set(((centreRows ?? []) as ExamCentre[]).filter((c) => c.kind === "camp").map((c) => c.id));
+  // Camp and Grand Finale staff are managed on their own pages.
+  const campIds = new Set(((centreRows ?? []) as ExamCentre[]).filter((c) => c.kind === "camp" || c.kind === "finale").map((c) => c.id));
   const centres = ((centreRows ?? []) as ExamCentre[]).filter((c) => !campIds.has(c.id));
   const leads = ((leadRows ?? []) as unknown as CentreLead[]).filter((l) => !campIds.has(l.centre_id));
 

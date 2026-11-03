@@ -19,6 +19,7 @@ import {
   markMany,
   openAttendanceExam,
   openCamp,
+  openFinaleDoor,
   stampSignIn,
   type LeadWithCentre,
   type OpenExam,
@@ -32,6 +33,8 @@ import {
   type OpenCamp,
 } from "@/lib/camp-attendance-data";
 import { createAdminClient } from "@/supabase/admin";
+import { doorQuery } from "@/lib/finale-attend";
+import { doorCheckIn, findDoorTickets, loadAttendance, type DoorCheckIn, type DoorCounts, type DoorLookup } from "@/lib/finale-attend-data";
 import type { AttendanceStatus } from "@/supabase/types";
 
 export type SignInResult = { ok: true } | { ok: false; error: string };
@@ -45,10 +48,15 @@ function secret() {
 
 export type LeadSession =
   | { kind: "exam"; lead: LeadWithCentre; exam: OpenExam }
-  | { kind: "camp"; lead: LeadWithCentre; camp: OpenCamp; days: string[]; day: string };
+  | { kind: "camp"; lead: LeadWithCentre; camp: OpenCamp; days: string[]; day: string }
+  | { kind: "finale"; lead: LeadWithCentre; year: number };
 
 /** Which register a lead's centre opens onto, or null while that register is closed. */
 async function sessionFor(lead: LeadWithCentre): Promise<LeadSession | null> {
+  if (lead.centre.kind === "finale") {
+    const door = await openFinaleDoor();
+    return door && door.edition_year === lead.edition_year ? { kind: "finale", lead, year: door.edition_year } : null;
+  }
   if (lead.centre.kind === "camp") {
     const camp = await openCamp();
     if (!camp || camp.edition_year !== lead.edition_year) return null;
@@ -267,4 +275,60 @@ export async function markCampRemainingAbsent(
   });
   revalidatePath("/attendance/roster");
   return { ok: true };
+}
+
+// ── Grand Finale door ───────────────────────────────────────────────────────
+
+type DoorSession = Extract<LeadSession, { kind: "finale" }>;
+
+async function doorSession(): Promise<DoorSession | null> {
+  const session = await currentLead();
+  return session?.kind === "finale" ? session : null;
+}
+
+/** A scanned QR is the ticket URL; anything typed is a code or a name. */
+export async function lookupDoorTickets(query: string): Promise<DoorLookup> {
+  const session = await doorSession();
+  if (!session) return { ok: false, error: "Your session ended. Sign in again." };
+  const { tickets, error } = await findDoorTickets(serviceDb(), session.year, doorQuery(query));
+  if (error) return { ok: false, error: "Could not search tickets. Try again." };
+  return { ok: true, tickets };
+}
+
+export async function checkInAtDoor(attendeeId: string, undo = false): Promise<DoorCheckIn> {
+  const session = await doorSession();
+  if (!session) return { ok: false, reason: "error", ticket: null, error: "Your session ended. Sign in again." };
+  const db = serviceDb();
+  // The posted id is not a scope: it must be a ticket for this door's edition.
+  const { data, error } = await db.from("finale_attendees").select("id").eq("id", attendeeId).eq("edition_year", session.year).maybeSingle();
+  if (error) return { ok: false, reason: "error", ticket: null, error: error.message };
+  if (!data) return { ok: false, reason: "missing", ticket: null };
+  const result = await doorCheckIn(db, attendeeId, { leadId: session.lead.id }, undo);
+  revalidatePath("/attendance/roster");
+  revalidatePath("/portal/admin/finale");
+  revalidatePath("/grand-finale", "layout");
+  return result;
+}
+
+/** The ticket page's form for signed-in door staff. */
+export async function checkInFromTicket(attendeeId: string, undo: boolean, _prev: MarkResult | null, _formData: FormData): Promise<MarkResult> {
+  const result = await checkInAtDoor(attendeeId, undo);
+  if (result.ok) return { ok: true };
+  return {
+    ok: false,
+    error:
+      result.reason === "already"
+        ? "Already checked in."
+        : result.reason === "not-confirmed"
+          ? "This ticket isn't confirmed, so it can't be checked in."
+          : (result.error ?? "Could not check in. Try again."),
+  };
+}
+
+export async function doorCounts(): Promise<DoorCounts | null> {
+  const session = await doorSession();
+  if (!session) return null;
+  const { totals, error } = await loadAttendance(serviceDb(), session.year);
+  if (error) return null;
+  return { checkedIn: totals.checkedIn, confirmed: totals.confirmed + totals.schoolConfirmed };
 }

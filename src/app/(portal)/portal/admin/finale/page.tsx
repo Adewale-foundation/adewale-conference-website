@@ -4,7 +4,8 @@ import ActionForm from "@/components/portal/action-form";
 import { SubmitButton } from "@/components/portal/submit-button";
 import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import FinaleTabs from "@/components/portal/finale-tabs";
-import { Pagination, clampPage, pageBounds, parsePage } from "@/components/portal/list-controls";
+import ScanTicketsButton from "@/components/portal/scan-tickets-button";
+import { FilterBar, Pagination, clampPage, pageBounds, parsePage } from "@/components/portal/list-controls";
 import { Select } from "@/components/ui/select";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { formatCampDate, isoToLagosInput } from "@/lib/camp";
@@ -118,7 +119,8 @@ export default async function AdminFinaleAttendees({
       <PortalBody>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <FinaleTabs active="attendees" />
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {canManage ? <ScanTicketsButton /> : null}
             <a href={ATTEND_BASE} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-gold-ink hover:underline">
               Open the public page ↗
             </a>
@@ -271,12 +273,9 @@ export default async function AdminFinaleAttendees({
               <Link key={s} href={href({ status: s, page: undefined })} className={chip(status === s)}>{STATUS_LABELS[s]}</Link>
             ))}
           </div>
-          <form method="get" action={PATH} className="mt-4 flex flex-wrap gap-2">
-            {source ? <input type="hidden" name="source" value={source} /> : null}
-            {status ? <input type="hidden" name="status" value={status} /> : null}
-            <input name="q" defaultValue={q} placeholder="Name, email, school or ticket code" className={`${inputCls} max-w-sm`} />
-            <SubmitButton size="sm" variant="outline">Search</SubmitButton>
-          </form>
+          <div className="mt-4">
+            <FilterBar q={q} placeholder="Name, email, school or ticket code" preserve={{ source: source ?? undefined, status: status ?? undefined }} live showApply={false} />
+          </div>
 
           <ul className="mt-4 divide-y divide-foreground/10">
             {rows.length === 0 ? <li className="py-3 text-sm text-muted-foreground">Nobody matches.</li> : null}
