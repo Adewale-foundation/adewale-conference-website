@@ -43,7 +43,8 @@ function Tile({ value, compact }: { value: string; compact: boolean }) {
   );
 }
 
-export default function Countdown({ to, compact = false }: { to: string; compact?: boolean }) {
+/** `inline` is a single line of text ("16d 4h 12m") for places too narrow for tiles. */
+export default function Countdown({ to, compact = false, inline = false }: { to: string; compact?: boolean; inline?: boolean }) {
   const target = new Date(to).getTime();
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
@@ -58,6 +59,13 @@ export default function Countdown({ to, compact = false }: { to: string; compact
   }, []);
   // Placeholders on the server and first paint, so the strip doesn't shift when the clock starts.
   const values = now == null ? null : parts(target, now);
+  if (inline) {
+    return (
+      <span className="font-mono tabular-nums" aria-label="Time until the Grand Finale">
+        {values ? `${values[0]}d ${values[1]}h ${values[2]}m` : "--"}
+      </span>
+    );
+  }
 
   return (
     <div role="timer" aria-label="Time until the Grand Finale" className={`flex flex-nowrap items-start ${compact ? "gap-1" : "mt-2 gap-1 sm:gap-1.5"}`}>

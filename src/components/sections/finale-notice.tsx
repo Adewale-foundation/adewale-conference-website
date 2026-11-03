@@ -18,11 +18,16 @@ export default async function FinaleNotice() {
     <aside aria-label="Grand Finale notice" className="sticky top-18 z-90 border-b border-primary/40 bg-secondary/95 px-4 py-2.5 backdrop-blur md:px-10">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
+          {/* Nothing truncates: on a phone the line drops the venue and gains a text countdown, and the theme may wrap. */}
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
             <span className="inline-block size-2 shrink-0 rounded-full bg-primary motion-safe:animate-pulse" aria-hidden="true" />
-            <span className="truncate">Grand Finale · {GRAND_FINALE.shortDate} · {GRAND_FINALE.venueArea}</span>
+            <span>Grand Finale · {GRAND_FINALE.shortDate}</span>
+            <span className="hidden sm:inline">· {GRAND_FINALE.venueArea}</span>
+            <span className="normal-case tracking-normal text-white/70 md:hidden">
+              · <Countdown to={GRAND_FINALE.startsAt} inline /> left
+            </span>
           </p>
-          <p className="mt-0.5 truncate text-sm font-black uppercase text-white md:text-lg">
+          <p className="mt-0.5 text-[13px] font-black uppercase leading-tight text-white text-balance sm:text-sm md:text-lg">
             {GRAND_FINALE.theme}
             <span className="hidden font-semibold normal-case text-secondary-foreground/75 lg:inline">
               {" "}· {GRAND_FINALE.venue}, {GRAND_FINALE.timeLabel} · Free entry
@@ -35,9 +40,9 @@ export default async function FinaleNotice() {
           </div>
           <Link
             href={state === "closed" ? ATTEND_BASE : `${ATTEND_BASE}#register`}
-            className="inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-md bg-primary px-3.5 text-sm font-bold text-primary-foreground md:min-h-11 md:px-5 md:text-base"
+            className="inline-flex min-h-10 items-center justify-center whitespace-nowrap rounded-md bg-primary px-3 text-[13px] font-bold text-primary-foreground sm:px-3.5 sm:text-sm md:min-h-11 md:px-5 md:text-base"
           >
-            {state === "closed" ? "See details →" : state === "waitlist" ? "Join waitlist →" : "Register →"}
+            {state === "closed" ? "Details →" : state === "waitlist" ? "Waitlist →" : "Register →"}
           </Link>
         </div>
       </div>
