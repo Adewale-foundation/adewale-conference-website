@@ -5,10 +5,10 @@ import { SubmitButton } from "@/components/portal/submit-button";
 import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import FinaleTabs from "@/components/portal/finale-tabs";
 import ScanTicketsButton from "@/components/portal/scan-tickets-button";
+import FinaleCancelButton from "@/components/portal/finale-cancel-button";
 import FinaleReleaseWaitlist from "@/components/portal/finale-release-waitlist";
 import { FilterBar, Pagination, clampPage, pageBounds, parsePage } from "@/components/portal/list-controls";
 import { Select } from "@/components/ui/select";
-import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { formatCampDate, isoToLagosInput } from "@/lib/camp";
 import { maskPhone } from "@/lib/finale";
 import { ATTEND_BASE, ATTENDEE_ROLES, SOURCE_LABELS, STATUS_LABELS, normalizeRefCode, schoolInviteState, seatsLeft, ticketPath } from "@/lib/finale-attend";
@@ -19,14 +19,15 @@ import { createClient } from "@/supabase/server";
 import { canManageModule, requireModuleView } from "@/supabase/auth";
 import type { FinaleAttendee, FinaleAttendeeSource, FinaleAttendeeStatus } from "@/supabase/types";
 import {
+  cancelAttendeeWithReason,
   checkInAttendee,
+  confirmAttendee,
   draftSchoolInviteAnnouncement,
   inviteAttendee,
   releaseFinaleWaitlist,
   resendTicket,
   saveAttendSettings,
   saveSchoolInviteSettings,
-  setAttendeeStatus,
 } from "./actions";
 
 export const metadata = pageMetadata("Grand Finale attendees", "Who is coming to the Grand Finale, and how they got their seats.");
@@ -316,7 +317,7 @@ export default async function AdminFinaleAttendees({
                       </ActionForm>
                     ) : null}
                     {r.status !== "confirmed" ? (
-                      <ActionForm action={setAttendeeStatus.bind(null, r.id, "confirmed")}>
+                      <ActionForm action={confirmAttendee.bind(null, r.id)}>
                         <SubmitButton size="sm" pendingText="…">Confirm and email</SubmitButton>
                       </ActionForm>
                     ) : null}
@@ -326,18 +327,7 @@ export default async function AdminFinaleAttendees({
                       </ActionForm>
                     ) : null}
                     {r.status !== "cancelled" ? (
-                      <ActionForm action={setAttendeeStatus.bind(null, r.id, "cancelled")}>
-                        <ConfirmSubmitButton
-                          size="sm"
-                          variant="outline"
-                          destructive
-                          title="Cancel this registration?"
-                          description={`${r.seats} seat${r.seats === 1 ? "" : "s"} go back to the pool. No email is sent.`}
-                          confirmLabel="Yes, cancel"
-                        >
-                          Cancel
-                        </ConfirmSubmitButton>
-                      </ActionForm>
+                      <FinaleCancelButton action={cancelAttendeeWithReason.bind(null, r.id)} seats={r.seats} waitlisted={r.status === "waitlisted"} />
                     ) : null}
                   </div>
                 ) : null}

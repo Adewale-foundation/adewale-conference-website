@@ -763,31 +763,34 @@ ${data.namedStudents.length ? `<p class="body-font" style="margin:0 0 6px;font-s
   };
 }
 
-/** Closes a waitlist place, giving the admin's reason; the attendee should not travel. */
-export function buildFinaleWaitlistClosedEmail(data: {
+/** Tells an attendee their place is cancelled, with the admin's reason; they should not travel. */
+export function buildFinaleCancelledEmail(data: {
   email: string;
   firstName: string;
   lastName: string;
   refCode: string;
   source: "open" | "invited" | "school";
+  /** What they held until now: a waitlist place closes, a ticket is cancelled. */
+  was: "confirmed" | "waitlisted";
   /** The admin's reason, one entry per paragraph. */
   reason: string[];
   dateLabel: string;
 }) {
+  const waiting = data.was === "waitlisted";
   const paragraphs = [
     ...data.reason,
-    `Your waitlist place (${data.refCode}) is now closed. Please don't travel to the venue on ${data.dateLabel}: entry is by confirmed ticket only.`,
+    waiting
+      ? `Your waitlist place (${data.refCode}) is now closed. Please don't travel to the venue on ${data.dateLabel}: entry is by confirmed ticket only.`
+      : `Your ticket (${data.refCode}) is now cancelled and will not be accepted at the door, so please don't travel to the venue on ${data.dateLabel}.`,
   ];
-  const html = render("finale-waitlist-closed", "Your waitlist place is closed", {
-    intro:
-      data.source === "school"
-        ? `Thank you for accepting the Grand Finale invitation, and for waiting with us.`
-        : `Thank you for registering for the ASC Grand Finale, and for waiting with us.`,
+  const thanks = data.source === "school" ? "Thank you for accepting the Grand Finale invitation" : "Thank you for registering for the ASC Grand Finale";
+  const html = render("finale-cancelled", waiting ? "Your waitlist place is closed" : "Your registration is cancelled", {
+    intro: waiting ? `${thanks}, and for waiting with us.` : `${thanks}.`,
     bodyBlock: paragraphs.map((p) => `<p class="body-font" style="${CAMP_P}">${escapeHtml(p)}</p>`).join(""),
   });
   return {
     to: [{ email: data.email, name: `${data.firstName} ${data.lastName}` }],
-    subject: `Grand Finale waitlist closed: ${data.refCode}`,
+    subject: waiting ? `Grand Finale waitlist closed: ${data.refCode}` : `Grand Finale registration cancelled: ${data.refCode}`,
     html,
   };
 }

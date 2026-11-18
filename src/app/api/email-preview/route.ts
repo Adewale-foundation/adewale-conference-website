@@ -3,7 +3,7 @@ import {
   buildAnnouncementEmail,
   buildCampConfirmationEmail,
   buildCampExtraDecisionEmail,
-  buildFinaleWaitlistClosedEmail,
+  buildFinaleCancelledEmail,
   buildFinaleTicketEmail,
   buildRegistrationEmail,
   FINALE_TICKET_QR_CID,
@@ -22,7 +22,7 @@ export const runtime = "nodejs";
 //   Real test send:      /api/email-preview?type=registration&send=you@example.com
 // Types: registration (default), sponsorship, announcement, camp, camp-pending,
 // camp-approved, camp-declined, finale, finale-waitlist, finale-waitlist-closed,
-// finale-waitlist-closed-school (add &reason=… to try your own wording).
+// finale-waitlist-closed-school, finale-cancelled (add &reason=… to try your own wording).
 // The test send goes straight through SendGrid, independent of Airtable.
 export async function GET(request: Request) {
   if (process.env.NODE_ENV === "production") {
@@ -142,14 +142,15 @@ function campPreview(type: string) {
 }
 
 async function finalePreview(type: string, reasonParam: string | null) {
-  if (type === "finale-waitlist-closed" || type === "finale-waitlist-closed-school") {
+  if (type === "finale-waitlist-closed" || type === "finale-waitlist-closed-school" || type === "finale-cancelled") {
     const reason = validateReleaseReason(reasonParam ?? DEFAULT_RELEASE_REASON);
-    return buildFinaleWaitlistClosedEmail({
+    return buildFinaleCancelledEmail({
       email: "teacher@example.com",
       firstName: "Ada",
       lastName: "Nwosu",
       refCode: "GF-7K3QPM",
-      source: type === "finale-waitlist-closed" ? "open" : "school",
+      source: type === "finale-waitlist-closed-school" ? "school" : "open",
+      was: type === "finale-cancelled" ? "confirmed" : "waitlisted",
       reason: reason.ok ? reason.value : [reason.error],
       dateLabel: GRAND_FINALE.dateLabel,
     });
