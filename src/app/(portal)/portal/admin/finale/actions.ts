@@ -5,12 +5,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/supabase/server";
 import { requireManage } from "@/supabase/auth";
 import { lagosInputToIso } from "@/lib/camp";
-import { ATTEND_BASE, GRAND_FINALE, SCHOOL_FINALE_PATH, SOURCE_LABELS, doorQuery, validateAttendee } from "@/lib/finale-attend";
+import { ATTEND_BASE, GRAND_FINALE, SCHOOL_FINALE_PATH, SOURCE_LABELS, WAITLIST_RELEASE_BATCH, doorQuery, validateAttendee, validateReleaseReason, waitlistReleaseSummary } from "@/lib/finale-attend";
 import {
+  cancelAttendee,
   doorCheckIn,
   findDoorTickets,
   loadAttendance,
   registerAttendee,
+  releaseWaitlist,
   sendTicket,
   type DoorCheckIn,
   type DoorCounts,
@@ -19,7 +21,7 @@ import {
 import { FINALE_YEAR, finaleDb } from "@/lib/finale-data";
 import { SITE_URL } from "@/lib/site";
 import type { ActionResult } from "@/app/(portal)/portal/admin/paper-exams/actions";
-import type { FinaleAttendeeSource, FinaleAttendeeStatus } from "@/supabase/types";
+import type { FinaleAttendeeSource } from "@/supabase/types";
 
 const denied: ActionResult = { ok: false, error: "You have read-only access to participants." };
 const ADMIN_FINALE_PATH = "/portal/admin/finale";
@@ -52,33 +54,29 @@ export async function saveAttendSettings(year: number, _prev: ActionResult | nul
   return { ok: true, message: "Registration settings saved." };
 }
 
-/** Waitlisted → confirmed re-sends the ticket, so the attendee learns their seats are real. */
-export async function setAttendeeStatus(
-  attendeeId: string,
-  status: FinaleAttendeeStatus,
-  _prev: ActionResult | null,
-  _formData: FormData,
-): Promise<ActionResult> {
+/** Re-sends the ticket, so a waitlisted attendee learns their seats are real. */
+export async function confirmAttendee(attendeeId: string, _prev: ActionResult | null, _formData: FormData): Promise<ActionResult> {
   const admin = await requireManage("participants");
   if (!admin) return denied;
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("finale_attendees")
-    .update({ status })
-    .eq("id", attendeeId)
-    .select("id, ref_code");
+  const { data, error } = await supabase.from("finale_attendees").update({ status: "confirmed" }).eq("id", attendeeId).select("id");
   if (error) return { ok: false, error: `Could not update: ${error.message}` };
   if (!data?.length) return { ok: false, error: "That registration no longer exists." };
-  let emailed = false;
-  if (status === "confirmed") {
-    const db = finaleDb();
-    emailed = db ? await sendTicket(db, attendeeId) : false;
-  }
+  const db = finaleDb();
+  const emailed = db ? await sendTicket(db, attendeeId) : false;
   refresh();
-  return {
-    ok: true,
-    message: status === "confirmed" ? `Confirmed${emailed ? " and ticket emailed" : ", but the email did not send"}.` : status === "cancelled" ? "Cancelled." : "Moved to the waitlist.",
-  };
+  return { ok: true, message: `Confirmed${emailed ? " and ticket emailed" : ", but the email did not send"}.` };
+}
+
+export async function cancelAttendeeWithReason(attendeeId: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const admin = await requireManage("participants");
+  if (!admin) return denied;
+  const reason = validateReleaseReason(formData.get("reason"));
+  if (!reason.ok) return reason;
+  const cancelled = await cancelAttendee(await createClient(), attendeeId, reason.value);
+  if (cancelled.error) return { ok: false, error: `Could not cancel: ${cancelled.error}` };
+  refresh();
+  return { ok: true, message: cancelled.emailed ? "Cancelled and emailed the reason." : "Cancelled, but the email did not send." };
 }
 
 export async function checkInAttendee(attendeeId: string, undo: boolean, _prev: ActionResult | null, _formData: FormData): Promise<ActionResult> {
@@ -107,6 +105,17 @@ export async function resendTicket(attendeeId: string, _prev: ActionResult | nul
   const db = finaleDb();
   if (!db) return noService;
   return (await sendTicket(db, attendeeId)) ? { ok: true, message: "Ticket emailed." } : { ok: false, error: "The email did not send. Check the address and try again." };
+}
+
+export async function releaseFinaleWaitlist(year: number, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const admin = await requireManage("participants");
+  if (!admin) return denied;
+  const reason = validateReleaseReason(formData.get("reason"));
+  if (!reason.ok) return reason;
+  const released = await releaseWaitlist(await createClient(), year, reason.value, WAITLIST_RELEASE_BATCH);
+  refresh();
+  if (released.error) return { ok: false, error: `Could not finish: ${released.error}` };
+  return waitlistReleaseSummary(released);
 }
 
 export async function inviteAttendee(year: number, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {

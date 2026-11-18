@@ -27,7 +27,7 @@ export default async function FinaleInviteCard({ schoolId, editionYear }: { scho
       : status === "waitlisted"
         ? "You're on the Grand Finale waitlist"
         : status === "cancelled"
-          ? "You told us you can't come"
+          ? "You're not coming to the Grand Finale"
           : state === "open"
             ? "You're invited to the Grand Finale"
             : "Grand Finale replies have closed";

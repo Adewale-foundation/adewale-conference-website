@@ -1,7 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import QRCode from "qrcode";
-import { buildFinaleTicketEmail, sendEmail } from "@/lib/email";
+import { chunk, mapLimit } from "@/lib/batch";
+import { buildFinaleCancelledEmail, buildFinaleTicketEmail, sendEmail } from "@/lib/email";
 import { GRAND_FINALE, normalizeRefCode, ticketPath, type AttendeeValue } from "@/lib/finale-attend";
 import { SITE_URL } from "@/lib/site";
 import type { FinaleAttendee, FinaleAttendeeSource, FinaleAttendeeStatus, FinaleSettings } from "@/supabase/types";
@@ -192,6 +193,85 @@ export async function sendTicket(db: SupabaseClient, attendeeId: string): Promis
     console.error("finale: ticket email failed", reasons ? JSON.stringify(reasons) : error);
     return false;
   }
+}
+
+type Cancellable = Pick<FinaleAttendee, "id" | "first_name" | "last_name" | "email" | "ref_code" | "source">;
+
+/** Emails the cancellation and its reason. Never throws; false when it did not send. */
+async function sendCancelled(a: Cancellable, was: "confirmed" | "waitlisted", reason: string[]): Promise<boolean> {
+  try {
+    return await sendEmail(
+      buildFinaleCancelledEmail({
+        email: a.email,
+        firstName: a.first_name,
+        lastName: a.last_name,
+        refCode: a.ref_code,
+        source: a.source,
+        was,
+        reason,
+        dateLabel: GRAND_FINALE.dateLabel,
+      }),
+    );
+  } catch (e) {
+    const reasons = (e as { response?: { body?: { errors?: unknown } } })?.response?.body?.errors;
+    console.error(`finale: cancellation email failed for ${a.ref_code}`, reasons ? JSON.stringify(reasons) : e);
+    return false;
+  }
+}
+
+/** Cancels one registration and emails the reason. A failed email does not undo the cancel: an admin must be able to drop a dead address. */
+export async function cancelAttendee(
+  db: SupabaseClient,
+  attendeeId: string,
+  reason: string[],
+): Promise<{ emailed: boolean; error: string | null }> {
+  const found = await db.from("finale_attendees").select("id, first_name, last_name, email, ref_code, source, status").eq("id", attendeeId).maybeSingle();
+  if (found.error) return { emailed: false, error: found.error.message };
+  const a = found.data as (Cancellable & Pick<FinaleAttendee, "status">) | null;
+  if (!a) return { emailed: false, error: "That registration no longer exists." };
+  if (a.status === "cancelled") return { emailed: false, error: "That registration is already cancelled." };
+  const cancel = await db.from("finale_attendees").update({ status: "cancelled" }).eq("id", a.id).eq("status", a.status).select("id");
+  if (cancel.error) return { emailed: false, error: cancel.error.message };
+  if (!cancel.data?.length) return { emailed: false, error: "That registration changed while you were cancelling it. Refresh and try again." };
+  return { emailed: await sendCancelled(a, a.status, reason), error: null };
+}
+
+/** Emails up to `limit` of the waitlist the admin's reason. A row is cancelled only after its email is accepted, so nobody is dropped unheard. */
+export async function releaseWaitlist(
+  db: SupabaseClient,
+  year: number,
+  reason: string[],
+  limit: number,
+): Promise<{ sent: number; failed: number; remaining: number; error: string | null }> {
+  const { data, error, count } = await db
+    .from("finale_attendees")
+    .select("id, first_name, last_name, email, ref_code, source", { count: "exact" })
+    .eq("edition_year", year)
+    .eq("status", "waitlisted")
+    .order("created_at")
+    .order("id")
+    .limit(limit);
+  if (error) return { sent: 0, failed: 0, remaining: 0, error: error.message };
+  const rows = (data ?? []) as Cancellable[];
+  let sent = 0;
+  let failed = 0;
+
+  // Cancelled batch by batch: a timeout mid-run can then re-email at most one batch on the next click.
+  for (const batch of chunk(rows, 50)) {
+    const told: string[] = [];
+    await mapLimit(batch, 10, async (a) => {
+      if (await sendCancelled(a, "waitlisted", reason)) told.push(a.id);
+      else failed++;
+    });
+    if (!told.length) continue;
+    // Still-waitlisted only: an admin may have confirmed someone while this ran.
+    const cancel = await db.from("finale_attendees").update({ status: "cancelled" }).in("id", told).eq("status", "waitlisted").select("id");
+    if (cancel.error) {
+      return { sent, failed, remaining: 0, error: `${told.length} people were emailed but could not be cancelled (${sent} cancelled before that): ${cancel.error.message}` };
+    }
+    sent += cancel.data?.length ?? 0;
+  }
+  return { sent, failed, remaining: Math.max(0, (count ?? rows.length) - rows.length), error: null };
 }
 
 /** What the public ticket page may show: no email, no phone, no student names. */
