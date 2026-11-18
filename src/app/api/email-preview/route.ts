@@ -3,6 +3,7 @@ import {
   buildAnnouncementEmail,
   buildCampConfirmationEmail,
   buildCampExtraDecisionEmail,
+  buildFinaleWaitlistClosedEmail,
   buildFinaleTicketEmail,
   buildRegistrationEmail,
   FINALE_TICKET_QR_CID,
@@ -11,7 +12,7 @@ import {
   sendEmail,
 } from "@/lib/email";
 import { markdownToEmailHtml } from "@/lib/markdown-email";
-import { GRAND_FINALE } from "@/lib/finale-attend";
+import { DEFAULT_RELEASE_REASON, GRAND_FINALE, validateReleaseReason } from "@/lib/finale-attend";
 import QRCode from "qrcode";
 
 export const runtime = "nodejs";
@@ -20,7 +21,8 @@ export const runtime = "nodejs";
 //   Preview in browser:  /api/email-preview?type=registration
 //   Real test send:      /api/email-preview?type=registration&send=you@example.com
 // Types: registration (default), sponsorship, announcement, camp, camp-pending,
-// camp-approved, camp-declined, finale, finale-waitlist.
+// camp-approved, camp-declined, finale, finale-waitlist, finale-waitlist-closed,
+// finale-waitlist-closed-school (add &reason=… to try your own wording).
 // The test send goes straight through SendGrid, independent of Airtable.
 export async function GET(request: Request) {
   if (process.env.NODE_ENV === "production") {
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
   // buildRegistrationEmail now returns one message per recipient — preview the
   // teacher's copy (the one that carries the activation link).
   const email =
-    (await finalePreview(type)) ??
+    (await finalePreview(type, params.get("reason"))) ??
     campPreview(type) ??
     (type === "announcement"
       ? buildAnnouncementEmail({
@@ -139,7 +141,19 @@ function campPreview(type: string) {
   return null;
 }
 
-async function finalePreview(type: string) {
+async function finalePreview(type: string, reasonParam: string | null) {
+  if (type === "finale-waitlist-closed" || type === "finale-waitlist-closed-school") {
+    const reason = validateReleaseReason(reasonParam ?? DEFAULT_RELEASE_REASON);
+    return buildFinaleWaitlistClosedEmail({
+      email: "teacher@example.com",
+      firstName: "Ada",
+      lastName: "Nwosu",
+      refCode: "GF-7K3QPM",
+      source: type === "finale-waitlist-closed" ? "open" : "school",
+      reason: reason.ok ? reason.value : [reason.error],
+      dateLabel: GRAND_FINALE.dateLabel,
+    });
+  }
   if (type !== "finale" && type !== "finale-waitlist") return null;
   const png = await QRCode.toBuffer("https://www.adewaleconference.org/grand-finale/ticket/GF-7K3QPM", { width: 260, margin: 1 });
   return buildFinaleTicketEmail({

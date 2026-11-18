@@ -5,12 +5,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/supabase/server";
 import { requireManage } from "@/supabase/auth";
 import { lagosInputToIso } from "@/lib/camp";
-import { ATTEND_BASE, GRAND_FINALE, SCHOOL_FINALE_PATH, SOURCE_LABELS, doorQuery, validateAttendee } from "@/lib/finale-attend";
+import { ATTEND_BASE, GRAND_FINALE, SCHOOL_FINALE_PATH, SOURCE_LABELS, WAITLIST_RELEASE_BATCH, doorQuery, validateAttendee, validateReleaseReason, waitlistReleaseSummary } from "@/lib/finale-attend";
 import {
   doorCheckIn,
   findDoorTickets,
   loadAttendance,
   registerAttendee,
+  releaseWaitlist,
   sendTicket,
   type DoorCheckIn,
   type DoorCounts,
@@ -107,6 +108,17 @@ export async function resendTicket(attendeeId: string, _prev: ActionResult | nul
   const db = finaleDb();
   if (!db) return noService;
   return (await sendTicket(db, attendeeId)) ? { ok: true, message: "Ticket emailed." } : { ok: false, error: "The email did not send. Check the address and try again." };
+}
+
+export async function releaseFinaleWaitlist(year: number, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const admin = await requireManage("participants");
+  if (!admin) return denied;
+  const reason = validateReleaseReason(formData.get("reason"));
+  if (!reason.ok) return reason;
+  const released = await releaseWaitlist(await createClient(), year, reason.value, WAITLIST_RELEASE_BATCH);
+  refresh();
+  if (released.error) return { ok: false, error: `Could not finish: ${released.error}` };
+  return waitlistReleaseSummary(released);
 }
 
 export async function inviteAttendee(year: number, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {

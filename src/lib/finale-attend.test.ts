@@ -11,6 +11,8 @@ import {
   seatsLeft,
   validateAttendee,
   validateSchoolResponse,
+  validateReleaseReason,
+  waitlistReleaseSummary,
   type AttendeeInput,
 } from "./finale-attend";
 import type { FinaleAttendee } from "@/supabase/types";
@@ -214,5 +216,42 @@ describe("doorQuery", () => {
   it("passes a typed code or name through", () => {
     assert.equal(doorQuery(" GF-7K3QPM "), "GF-7K3QPM");
     assert.equal(doorQuery("Lantern Model"), "Lantern Model");
+  });
+});
+
+describe("waitlistReleaseSummary", () => {
+  it("says so when the waitlist is empty", () => {
+    assert.deepEqual(waitlistReleaseSummary({ sent: 0, failed: 0, remaining: 0 }), { ok: false, error: "Nobody is on the waitlist." });
+  });
+
+  it("reports a run that emailed nobody as a failure, not a quiet success", () => {
+    const r = waitlistReleaseSummary({ sent: 0, failed: 3, remaining: 0 });
+    assert.equal(r.ok, false);
+    assert.match(r.ok ? "" : r.error, /nobody was cancelled/);
+  });
+
+  it("counts who was told, who was not, and who is still to go", () => {
+    assert.deepEqual(waitlistReleaseSummary({ sent: 1, failed: 0, remaining: 0 }), { ok: true, message: "Emailed and cancelled 1 registration." });
+    assert.deepEqual(waitlistReleaseSummary({ sent: 148, failed: 2, remaining: 40 }), {
+      ok: true,
+      message: "Emailed and cancelled 148 registrations. 2 could not be emailed and stay on the waitlist. 40 more are waiting: run it again.",
+    });
+  });
+});
+
+describe("validateReleaseReason", () => {
+  it("keeps the admin's paragraphs and drops blank lines", () => {
+    const r = validateReleaseReason("  The hall is full and no seats opened.  \n\n\nWe are sorry.\n");
+    assert.deepEqual(r, { ok: true, value: ["The hall is full and no seats opened.", "We are sorry."] });
+  });
+
+  it("refuses a missing or throwaway reason, since it is the body of the email", () => {
+    assert.equal(validateReleaseReason(null).ok, false);
+    assert.equal(validateReleaseReason("   \n ").ok, false);
+    assert.equal(validateReleaseReason("full").ok, false);
+  });
+
+  it("refuses an essay", () => {
+    assert.equal(validateReleaseReason("x".repeat(1201)).ok, false);
   });
 });

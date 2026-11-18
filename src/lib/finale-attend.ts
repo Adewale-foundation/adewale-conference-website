@@ -98,6 +98,45 @@ export function seatsLeft(capacity: number | null, taken: number): number | null
   return capacity == null ? null : Math.max(0, capacity - taken);
 }
 
+/** One click emails this many, so the action finishes inside the serverless time limit. */
+export const WAITLIST_RELEASE_BATCH = 150;
+
+export const RELEASE_REASON_MAX = 1200;
+export const DEFAULT_RELEASE_REASON =
+  "The hall is full and no seats have opened up, so we are sorry that we cannot offer you a place at this year's Grand Finale.";
+
+/** The reason is the body of the email, one paragraph per line. */
+export function validateReleaseReason(raw: unknown): { ok: true; value: string[] } | { ok: false; error: string } {
+  const paragraphs = (typeof raw === "string" ? raw : "").split(/\n+/).map(cleanText).filter(Boolean);
+  const length = paragraphs.join(" ").length;
+  if (length < 20) return { ok: false, error: "Write the reason people will read in the email: a full sentence at least." };
+  if (length > RELEASE_REASON_MAX) return { ok: false, error: `Keep the reason under ${RELEASE_REASON_MAX} characters.` };
+  return { ok: true, value: paragraphs };
+}
+
+/** `remaining` is the waitlist beyond this run's batch; `failed` were tried and stay waitlisted. */
+export function waitlistReleaseSummary(r: {
+  sent: number;
+  failed: number;
+  remaining: number;
+}): { ok: true; message: string } | { ok: false; error: string } {
+  const registrations = (n: number) => `${n} registration${n === 1 ? "" : "s"}`;
+  if (r.sent === 0) {
+    const waiting = r.failed + r.remaining;
+    return {
+      ok: false,
+      error: waiting === 0 ? "Nobody is on the waitlist." : `No email went out, so nobody was cancelled. ${registrations(waiting)} still on the waitlist.`,
+    };
+  }
+  return {
+    ok: true,
+    message:
+      `Emailed and cancelled ${registrations(r.sent)}.` +
+      (r.failed ? ` ${r.failed} could not be emailed and stay${r.failed === 1 ? "s" : ""} on the waitlist.` : "") +
+      (r.remaining ? ` ${r.remaining} more ${r.remaining === 1 ? "is" : "are"} waiting: run it again.` : ""),
+  };
+}
+
 // ── Ref codes ───────────────────────────────────────────────────────────────
 
 /** Same alphabet as the SQL generator: no 0/O or 1/I to misread at the door. */

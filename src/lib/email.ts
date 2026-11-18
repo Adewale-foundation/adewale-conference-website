@@ -763,6 +763,35 @@ ${data.namedStudents.length ? `<p class="body-font" style="margin:0 0 6px;font-s
   };
 }
 
+/** Closes a waitlist place, giving the admin's reason; the attendee should not travel. */
+export function buildFinaleWaitlistClosedEmail(data: {
+  email: string;
+  firstName: string;
+  lastName: string;
+  refCode: string;
+  source: "open" | "invited" | "school";
+  /** The admin's reason, one entry per paragraph. */
+  reason: string[];
+  dateLabel: string;
+}) {
+  const paragraphs = [
+    ...data.reason,
+    `Your waitlist place (${data.refCode}) is now closed. Please don't travel to the venue on ${data.dateLabel}: entry is by confirmed ticket only.`,
+  ];
+  const html = render("finale-waitlist-closed", "Your waitlist place is closed", {
+    intro:
+      data.source === "school"
+        ? `Thank you for accepting the Grand Finale invitation, and for waiting with us.`
+        : `Thank you for registering for the ASC Grand Finale, and for waiting with us.`,
+    bodyBlock: paragraphs.map((p) => `<p class="body-font" style="${CAMP_P}">${escapeHtml(p)}</p>`).join(""),
+  });
+  return {
+    to: [{ email: data.email, name: `${data.firstName} ${data.lastName}` }],
+    subject: `Grand Finale waitlist closed: ${data.refCode}`,
+    html,
+  };
+}
+
 /** A one-off camp notice to a school (a correction or a reminder), in the camp email's frame. */
 export function buildCampNoticeEmail(data: {
   email: string;

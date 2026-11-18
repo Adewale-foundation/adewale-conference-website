@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/portal/submit-button";
 import { ReadOnlyBadge } from "@/components/portal/read-only-badge";
 import FinaleTabs from "@/components/portal/finale-tabs";
 import ScanTicketsButton from "@/components/portal/scan-tickets-button";
+import FinaleReleaseWaitlist from "@/components/portal/finale-release-waitlist";
 import { FilterBar, Pagination, clampPage, pageBounds, parsePage } from "@/components/portal/list-controls";
 import { Select } from "@/components/ui/select";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
@@ -21,6 +22,7 @@ import {
   checkInAttendee,
   draftSchoolInviteAnnouncement,
   inviteAttendee,
+  releaseFinaleWaitlist,
   resendTicket,
   saveAttendSettings,
   saveSchoolInviteSettings,
@@ -251,6 +253,7 @@ export default async function AdminFinaleAttendees({
               <a href={`${PATH}/export`} className="text-xs uppercase tracking-[0.2em] text-primary hover:underline">Export CSV ↓</a>
             ) : null}
           </div>
+          {canManage && totals.waitlisted > 0 ? <FinaleReleaseWaitlist action={releaseFinaleWaitlist.bind(null, year)} seats={totals.waitlisted} /> : null}
           <div className="mt-4 flex flex-wrap gap-2">
             <Link href={href({ source: undefined, page: undefined })} className={chip(!source)}>
               All ({((openRes.count ?? 0) + (invitedRes.count ?? 0) + (schoolRes.count ?? 0)).toLocaleString("en-NG")})
