@@ -53,6 +53,113 @@
   50% { opacity: 0.25; }
 }
 
+/* Landing page. hero-in is a pure-CSS entrance staggered by --i; reveal is driven by
+   components/ui/scroll-reveals.tsx. */
+@keyframes hero-in {
+  from { transform: translateY(28px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes hero-line {
+  from { transform: translateY(110%) rotate(4deg); }
+  to { transform: none; }
+}
+@keyframes hero-zoom {
+  from { transform: scale(1.18); }
+  to { transform: scale(1); }
+}
+@keyframes hero-pop {
+  from { transform: scale(0.6) translateY(20px); opacity: 0; }
+  70% { transform: scale(1.06); opacity: 1; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes hero-drift {
+  from { transform: scale(1); }
+  to { transform: scale(1.08) translate(-1%, -1%); }
+}
+.hero-in { animation: hero-in 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--i, 0) * 110ms + 150ms) both; }
+.hero-line { display: block; overflow: hidden; }
+.hero-line > span {
+  display: block;
+  transform-origin: left bottom;
+  animation: hero-line 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--i, 0) * 130ms + 200ms) both;
+}
+.hero-zoom { animation: hero-zoom 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) both, hero-drift 18s ease-in-out 2.2s infinite alternate; }
+.hero-pop { animation: hero-pop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) calc(var(--i, 0) * 120ms + 900ms) both; }
+
+.reveal {
+  opacity: 0;
+  transform: translateY(36px) scale(0.98);
+  transition: opacity 0.8s ease var(--reveal-delay, 0ms), transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) var(--reveal-delay, 0ms);
+}
+.reveal.reveal-in { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-in, .hero-line > span, .hero-zoom, .hero-pop { animation: none; }
+}
+
+/* Champions podium. Everything is scoped to .celebrate (components/finale/celebration.tsx) and
+   held at its first frame until that sets data-live, so the entrance plays when it is seen. */
+@keyframes podium-rise {
+  from { transform: scaleY(0); }
+  70% { transform: scaleY(1.08); }
+  to { transform: scaleY(1); }
+}
+@keyframes podium-drop {
+  from { transform: translateY(-70px) scale(0.85) rotate(-4deg); opacity: 0; }
+  60% { transform: translateY(8px) scale(1.03) rotate(1deg); opacity: 1; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes trophy-wiggle {
+  0%, 60%, 100% { transform: rotate(0) scale(1); }
+  10% { transform: rotate(-14deg) scale(1.25); }
+  20% { transform: rotate(12deg) scale(1.25); }
+  30% { transform: rotate(-8deg) scale(1.15); }
+  40% { transform: rotate(6deg) scale(1.1); }
+}
+@keyframes champion-shine {
+  to { background-position: -200% center; }
+}
+@keyframes champion-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 160, 32, 0), 0 1px 3px rgba(10, 15, 30, 0.05); }
+  50% { box-shadow: 0 0 34px 4px rgba(232, 160, 32, 0.45), 0 1px 3px rgba(10, 15, 30, 0.05); }
+}
+
+.celebrate { --podium-delay: 0.45s; cursor: pointer; }
+.celebrate [data-place="2"] { --podium-delay: 0.15s; }
+.celebrate [data-place="1"] { --podium-delay: 0.9s; }
+.celebrate .podium-ped {
+  transform-origin: bottom;
+  animation: podium-rise 0.8s cubic-bezier(0.2, 0.9, 0.3, 1) var(--podium-delay) both;
+}
+.celebrate .podium-card {
+  animation: podium-drop 0.75s cubic-bezier(0.2, 0.9, 0.3, 1) calc(var(--podium-delay) + 0.45s) both;
+}
+.celebrate [data-place="1"] .podium-card {
+  animation:
+    podium-drop 0.75s cubic-bezier(0.2, 0.9, 0.3, 1) calc(var(--podium-delay) + 0.45s) both,
+    champion-glow 2.6s ease-in-out 2.4s infinite;
+}
+.celebrate .podium-icon { display: inline-block; }
+.celebrate [data-place="1"] .podium-icon,
+.celebrate .podium-icon[data-place="1"] {
+  animation: trophy-wiggle 2.8s ease-in-out 2.2s infinite;
+}
+.celebrate .champion-shine {
+  background: linear-gradient(100deg, var(--shine-base, #0A0F1E) 35%, #FFD166 48%, #E8A020 52%, var(--shine-base, #0A0F1E) 65%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: champion-shine 3.2s linear 2s infinite;
+}
+.celebrate:not([data-live]) :is(.podium-ped, .podium-card, .podium-icon, .champion-shine) {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .celebrate :is(.podium-ped, .podium-card, .podium-icon, .champion-shine) { animation: none; }
+  .celebrate .champion-shine { background: none; color: inherit; }
+}
+
 /* Chevron for the shared Select primitive. A background-image can't take
    currentColor, so light and dark surfaces each get a baked fill. The path is
    the one the sponsorship form used to draw by hand. */

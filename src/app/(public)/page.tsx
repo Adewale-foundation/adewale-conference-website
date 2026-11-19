@@ -9,6 +9,7 @@ import FounderSection from "@/components/sections/founder-section";
 import RegistrationSection from "@/components/sections/registration-section";
 import FaqSection from "@/components/sections/faq-section";
 import FinaleNotice from "@/components/sections/finale-notice";
+import ScrollReveals from "@/components/ui/scroll-reveals";
 import { getRegistrationOpen } from "@/lib/edition-state";
 
 // Regenerated every 60s so admin opening/closing registration (Portal →
@@ -22,15 +23,17 @@ export default async function HomePage() {
     <>
       <FinaleNotice />
       <HeroSection />
-      <AboutSection />
-      <ImpactSection />
-      <ProgrammeSection />
-      <DatesSection />
-      <WhyPartnerSection />
-      <SponsorshipSection />
-      <FounderSection />
-      <RegistrationSection registrationOpen={open} />
-      <FaqSection />
+      <ScrollReveals>
+        <AboutSection />
+        <ImpactSection />
+        <ProgrammeSection />
+        <DatesSection />
+        <WhyPartnerSection />
+        <SponsorshipSection />
+        <FounderSection />
+        <RegistrationSection registrationOpen={open} />
+        <FaqSection />
+      </ScrollReveals>
     </>
   );
 }
