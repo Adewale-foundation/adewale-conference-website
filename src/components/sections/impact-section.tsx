@@ -1,3 +1,5 @@
+import CountUp from "@/components/ui/count-up";
+
 const stats = [
   { num: "5,000+", label: "Students Reached Directly" },
   { num: "₦25M+", label: "Scholarship Support Awarded" },
@@ -94,7 +96,7 @@ export default function ImpactSection() {
               className="bg-secondary p-7 md:p-8 border-t-2 border-transparent outline-none transition-colors duration-200 hover:bg-[#222B4A] hover:border-[#E8A020] focus:bg-[#222B4A] focus:border-[#E8A020]"
             >
               <div className="font-bebas text-5xl md:text-6xl text-primary leading-none mb-4">
-                {s.num}
+                <CountUp text={s.num} />
               </div>
               <div className="text-[11px] md:text-xs font-bold tracking-[0.2em] uppercase text-[rgba(250,247,240,0.55)] leading-snug">
                 {s.label}

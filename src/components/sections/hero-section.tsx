@@ -1,6 +1,7 @@
 import { Button } from "../../components/ui/button";
 import { Star } from "lucide-react";
 import InstallAppButton from "@/components/pwa/install-app-button";
+import CountUp from "@/components/ui/count-up";
 
 const stats = [
   { num: "5,000+", label: "Students Reached Directly" },
@@ -26,7 +27,7 @@ export default function HeroSection() {
     >
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2">
         <div className="flex flex-col justify-center px-6 sm:px-10 md:px-12 lg:px-16 py-12 md:py-16 relative z-10">
-          <div className="inline-flex items-center gap-2 self-start border border-[#E8A020] bg-[rgba(232,160,32,0.08)] px-4 py-2 mb-10">
+          <div className="hero-in inline-flex items-center gap-2 self-start border border-[#E8A020] bg-[rgba(232,160,32,0.08)] px-4 py-2 mb-10">
             <Star className="w-3 h-3 fill-[#E8A020] text-primary" />
             <span className="text-[10px] md:text-xs font-bold tracking-[0.25em] uppercase text-primary">
               Year Six · Ogun State · 2026
@@ -34,17 +35,18 @@ export default function HeroSection() {
           </div>
 
           <h1 className="font-bebas text-5xl sm:text-6xl md:text-6xl lg:text-7xl leading-[0.95] text-white">
-            <span className="block">Building</span>
-            <span className="block text-primary">Tomorrow's</span>
-            <span className="block mt-4 md:mt-5">Geniuses</span>
-            <span className="block">Today.</span>
+            {["Building", "Tomorrow's", "Geniuses", "Today."].map((line, i) => (
+              <span key={line} className={`hero-line ${i === 1 ? "text-primary" : ""} ${i === 2 ? "mt-4 md:mt-5" : ""}`}>
+                <span style={{ "--i": i + 1 } as React.CSSProperties}>{line}</span>
+              </span>
+            ))}
           </h1>
 
-          <p className="serif-display text-base md:text-lg text-[rgba(250,247,240,0.7)] italic leading-relaxed max-w-md mt-8 mb-10">
+          <p className="hero-in serif-display text-base md:text-lg text-[rgba(250,247,240,0.7)] italic leading-relaxed max-w-md mt-8 mb-10" style={{ "--i": 6 } as React.CSSProperties}>
             Ogun State's most ambitious student innovation platform now entering its sixth year as a permanent institution.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 mb-10">
+          <div className="hero-in flex flex-col sm:flex-row gap-3 mb-10" style={{ "--i": 7 } as React.CSSProperties}>
             <Button
               variant="default"
               className="rounded-none h-12 px-6 text-xs font-bold tracking-[0.2em] uppercase"
@@ -63,25 +65,25 @@ export default function HeroSection() {
             <InstallAppButton />
           </div>
 
-          <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 self-start border border-[rgba(232,160,32,0.35)] px-3 py-2.5 text-[8px] md:text-[10px] tracking-[0.2em]">
+          <div className="hero-in inline-flex flex-wrap items-center gap-x-2 gap-y-1 self-start border border-[rgba(232,160,32,0.35)] px-3 py-2.5 text-[8px] md:text-[10px] tracking-[0.2em]" style={{ "--i": 8 } as React.CSSProperties}>
             <span className="text-[rgba(250,247,240,0.55)]">An Initiative of <span className="text-primary font-bold"> The Adewale Foundation</span></span>
 
           </div>
         </div>
 
-        <div className="relative min-h-105 md:min-h-full">
+        <div className="relative min-h-105 md:min-h-full overflow-hidden">
           <img
             src="/assets/hero-image.jpg"
             alt="ASC speaker on stage"
-            className="absolute inset-0 w-full h-full object-cover"
+            className="hero-zoom absolute inset-0 w-full h-full object-cover"
           />
           <div className="absolute inset-x-0 bottom-0 h-2/3 bg-linear-to-t from-[#0A0F1E]/85 via-[#0A0F1E]/30 to-transparent pointer-events-none" />
 
           <div className="absolute bottom-6 left-6 right-6 md:bottom-12 md:right-10 md:left-auto md:max-w-md grid grid-cols-2 gap-px bg-[rgba(232,160,32,0.2)]">
-            {stats.map((s) => (
-              <div key={s.label} className="bg-[#0A0F1E]/95 backdrop-blur-sm p-5 md:p-6">
+            {stats.map((s, i) => (
+              <div key={s.label} className="hero-pop bg-[#0A0F1E]/95 backdrop-blur-sm p-5 md:p-6" style={{ "--i": i } as React.CSSProperties}>
                 <div className="font-bebas text-3xl md:text-4xl text-primary leading-none mb-2">
-                  {s.num}
+                  <CountUp text={s.num} />
                 </div>
                 <div className="text-[10px] font-bold tracking-[0.2em] uppercase text-[rgba(250,247,240,0.55)] leading-snug">
                   {s.label}

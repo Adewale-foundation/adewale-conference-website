@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
+import Celebration from "@/components/finale/celebration";
 import EmptyState from "@/components/ui/empty-state";
 import { ResultsSearch } from "@/features/results/results-search";
+import { FINAL_STAGE, latestRoster } from "@/lib/finale-podium";
+import { loadFinalResult, type PodiumSchool } from "@/lib/finale-podium-data";
 import { publicQualificationLabel } from "@/lib/paper-exam";
 import { pageMetadata } from "@/lib/seo";
 import { createAdminClient } from "@/supabase/admin";
@@ -42,6 +45,8 @@ interface Edition {
   /** Stage order as the edition itself defines it, so sections read in sequence. */
   stages: string[];
   schools: AdvancingSchool[];
+  /** Champion and runner-up of the Grand Finale, once it is decided. */
+  final: { place: 1 | 2; school: AdvancingSchool }[];
 }
 
 type StageResultRow = {
@@ -64,6 +69,9 @@ type RepResultRow = {
   score: number | null;
   students: { name: string | null; school_id: string | null } | null;
 };
+
+const sortReps = (reps: Rep[]) =>
+  [...reps].sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name));
 
 const loadResults = unstable_cache(
   async (): Promise<Edition[]> => {
@@ -141,21 +149,53 @@ const loadResults = unstable_cache(
         reason: row.reason,
         score: row.score,
         scoreMax: row.score_max,
-        reps: (repsBy.get(`${year}:${row.stage}:${schoolId}`) ?? []).sort(
-          (a, b) => (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name),
-        ),
+        reps: sortReps(repsBy.get(`${year}:${row.stage}:${schoolId}`) ?? []),
       });
       byYear.set(year, list);
     }
 
+    // A failed read here costs the podium, not the page.
+    const finals = new Map(
+      await Promise.all(
+        years.map(async (year) => {
+          const { result, error } = await loadFinalResult(supabase, year);
+          if (error) console.error(`Public results: final placing for ${year} failed:`, error);
+          return [year, result] as const;
+        }),
+      ),
+    );
+
     return ((editionData ?? []) as { year: number; title: string | null; stages: string[] }[])
-      .map((edition) => ({
-        year: edition.year,
-        title: edition.title,
-        stages: edition.stages ?? [],
-        schools: byYear.get(edition.year) ?? [],
-      }))
-      .filter((edition) => edition.schools.length > 0);
+      .map((edition) => {
+        const stages = edition.stages ?? [];
+        const finalist = (school: PodiumSchool, place: 1 | 2) => ({
+          place,
+          school: {
+            registrationId: school.registrationId ?? `final-${place}`,
+            school: school.school,
+            lga: school.lga,
+            stage: FINAL_STAGE,
+            stateRank: place,
+            reason: null,
+            score: school.score,
+            scoreMax: null,
+            reps: sortReps(
+              latestRoster(stages, (stage) => repsBy.get(`${edition.year}:${stage}:${school.schoolId}`)),
+            ),
+          },
+        });
+        const final = finals.get(edition.year);
+        return {
+          year: edition.year,
+          title: edition.title,
+          stages,
+          schools: byYear.get(edition.year) ?? [],
+          final: final
+            ? [finalist(final.champion, 1), ...(final.runnerUp ? [finalist(final.runnerUp, 2)] : [])]
+            : [],
+        };
+      })
+      .filter((edition) => edition.schools.length > 0 || edition.final.length > 0);
   },
   ["public-results"],
   { revalidate: 300 },
@@ -220,19 +260,23 @@ const MEDAL: Record<1 | 2 | 3, { color: string; name: string; ped: string; icon:
 function PodiumColumn({ school, place }: { school: AdvancingSchool; place: 1 | 2 | 3 }) {
   const m = MEDAL[place];
   return (
-    <div className="flex-1 min-w-0">
+    <div className="flex-1 min-w-0" data-place={place}>
       <div
-        className="bg-white border-t-4 p-2 sm:p-4 text-center shadow-[0_1px_3px_rgba(10,15,30,0.05)]"
+        className="podium-card bg-white border-t-4 p-2 sm:p-4 text-center shadow-[0_1px_3px_rgba(10,15,30,0.05)]"
         style={{ borderTopColor: m.color }}
       >
-        <div className="text-lg sm:text-2xl leading-none">{m.icon}</div>
+        <div className="podium-icon text-lg sm:text-2xl leading-none">{m.icon}</div>
         <span
           className="hidden sm:block text-[10px] font-bold uppercase tracking-[0.2em] mt-1"
           style={{ color: m.color }}
         >
           {m.name}
         </span>
-        <h4 className="font-bebas text-sm sm:text-2xl text-foreground mt-1 leading-tight break-words">
+        <h4
+          className={`font-bebas text-sm sm:text-2xl text-foreground mt-1 leading-tight break-words ${
+            place === 1 ? "champion-shine" : ""
+          }`}
+        >
           {school.school}
         </h4>
         {school.reps.length ? (
@@ -252,7 +296,7 @@ function PodiumColumn({ school, place }: { school: AdvancingSchool; place: 1 | 2
           </p>
         ) : null}
       </div>
-      <div className={`flex items-start justify-center ${m.ped}`} style={{ background: m.color }}>
+      <div className={`podium-ped flex items-start justify-center ${m.ped}`} style={{ background: m.color }}>
         <span className="font-bebas text-xl sm:text-4xl text-white/85 mt-1 sm:mt-2">{place}</span>
       </div>
     </div>
@@ -396,6 +440,25 @@ export default async function ResultsPage({ searchParams }: Props) {
                       </span>
                     ) : null}
                   </div>
+
+                  {edition.final.length ? (
+                    <div className="mb-16">
+                      <h2 className="mb-6 flex items-center gap-3">
+                        <span className="font-bebas text-3xl text-foreground tracking-wide">
+                          Grand Finale
+                        </span>
+                        <span className="h-px flex-1 bg-[rgba(10,15,30,0.12)]" />
+                      </h2>
+                      <Celebration className="mx-auto flex max-w-2xl items-end gap-2 sm:gap-4">
+                        {[2, 1].map((place) => {
+                          const entry = edition.final.find((f) => f.place === place);
+                          return entry ? (
+                            <PodiumColumn key={place} school={entry.school} place={entry.place} />
+                          ) : null;
+                        })}
+                      </Celebration>
+                    </div>
+                  ) : null}
 
                   <div className="space-y-16">
                     {stagesOf(edition).map((stage) => {
