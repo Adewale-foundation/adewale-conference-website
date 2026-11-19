@@ -54,14 +54,16 @@ const STATUS_TONE: Record<FinaleAttendeeStatus, string> = {
 export default async function AdminFinaleAttendees({
   searchParams,
 }: {
-  searchParams: Promise<{ source?: string; status?: string; q?: string; page?: string }>;
+  searchParams: Promise<{ source?: string; status?: string; checkin?: string; q?: string; page?: string }>;
 }) {
   await requireModuleView("participants");
   const canManage = await canManageModule("participants");
   const params = await searchParams;
   const year = FINALE_YEAR;
   const source = (Object.keys(SOURCE_LABELS) as FinaleAttendeeSource[]).find((s) => s === params.source) ?? null;
-  const status = (Object.keys(STATUS_LABELS) as FinaleAttendeeStatus[]).find((s) => s === params.status) ?? null;
+  // Check-in only applies to confirmed seats, so it replaces the status filter rather than combining with it.
+  const checkin = (["in", "out"] as const).find((c) => c === params.checkin) ?? null;
+  const status = checkin ? null : ((Object.keys(STATUS_LABELS) as FinaleAttendeeStatus[]).find((s) => s === params.status) ?? null);
   // Commas and brackets would break PostgREST's or() syntax.
   const q = (params.q ?? "").replace(/[,()%*\\]/g, " ").trim().slice(0, 80);
   const code = normalizeRefCode(q);
@@ -76,6 +78,8 @@ export default async function AdminFinaleAttendees({
   let list = supabase.from("finale_attendees").select("*", { count: "exact" }).eq("edition_year", year);
   if (source) list = list.eq("source", source);
   if (status) list = list.eq("status", status);
+  if (checkin === "in") list = list.eq("status", "confirmed").not("checked_in_at", "is", null);
+  if (checkin === "out") list = list.eq("status", "confirmed").is("checked_in_at", null);
   if (code) list = list.eq("ref_code", code);
   else if (q) list = list.or(["first_name", "last_name", "email", "organisation"].map((c) => `${c}.ilike.%${q}%`).join(","));
   const page = parsePage(params.page);
@@ -109,7 +113,7 @@ export default async function AdminFinaleAttendees({
   const schoolLeft = seatsLeft(schoolCapacity, totals.schoolConfirmed);
   const inviteState = schoolInviteState(settings);
   const pageCount = Math.max(1, Math.ceil((listRes.count ?? 0) / PAGE_SIZE));
-  const filterParams = { source: source ?? undefined, status: status ?? undefined, q: q || undefined };
+  const filterParams = { source: source ?? undefined, status: status ?? undefined, checkin: checkin ?? undefined, q: q || undefined };
   const href = (extra: Record<string, string | undefined>) => {
     const merged = { ...filterParams, ...extra };
     const qs = new URLSearchParams(Object.entries(merged).filter((e): e is [string, string] => !!e[1]));
@@ -272,13 +276,15 @@ export default async function AdminFinaleAttendees({
             ))}
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Link href={href({ status: undefined, page: undefined })} className={chip(!status)}>Any status</Link>
+            <Link href={href({ status: undefined, checkin: undefined, page: undefined })} className={chip(!status && !checkin)}>Any status</Link>
             {(Object.keys(STATUS_LABELS) as FinaleAttendeeStatus[]).map((s) => (
-              <Link key={s} href={href({ status: s, page: undefined })} className={chip(status === s)}>{STATUS_LABELS[s]}</Link>
+              <Link key={s} href={href({ status: s, checkin: undefined, page: undefined })} className={chip(status === s)}>{STATUS_LABELS[s]}</Link>
             ))}
+            <Link href={href({ status: undefined, checkin: "in", page: undefined })} className={chip(checkin === "in")}>Checked in</Link>
+            <Link href={href({ status: undefined, checkin: "out", page: undefined })} className={chip(checkin === "out")}>Not checked in</Link>
           </div>
           <div className="mt-4">
-            <FilterBar q={q} placeholder="Name, email, school or ticket code" preserve={{ source: source ?? undefined, status: status ?? undefined }} live showApply={false} />
+            <FilterBar q={q} placeholder="Name, email, school or ticket code" preserve={{ source: source ?? undefined, status: status ?? undefined, checkin: checkin ?? undefined }} live showApply={false} />
           </div>
 
           <ul className="mt-4 divide-y divide-foreground/10">
