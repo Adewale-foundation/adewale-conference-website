@@ -1,44 +1,22 @@
-import Image from "next/image";
 import Link from "next/link";
-import { urlForImage } from "@/sanity/lib/image";
-import type { EditionListItem } from "@/sanity/types";
+import type { PastEdition } from "@/lib/editions-archive";
+import { REPLAYS } from "@/lib/replays";
 
-const STATUS_LABEL: Record<string, string> = {
-  upcoming: "Upcoming",
-  active: "In progress",
-  completed: "Completed",
-};
-
-export default function EditionCard({ edition }: { edition: EditionListItem }) {
+export default function EditionCard({ edition }: { edition: PastEdition }) {
+  const link = "text-sm font-bold underline underline-offset-4 hover:text-gold-ink";
   return (
-    <Link
-      href={`/editions/${edition.year}`}
-      className="group block border border-[rgba(10,15,30,0.1)] bg-white overflow-hidden hover:border-[#E8A020] transition-colors"
-    >
-      <div className="relative aspect-[16/10] bg-[#0A0F1E]">
-        {edition.heroImage ? (
-          <Image
-            src={urlForImage(edition.heroImage).width(800).height(500).url()}
-            alt={edition.theme}
-            fill
-            className="object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-            sizes="(max-width: 768px) 100vw, 33vw"
-          />
-        ) : null}
-        <span className="absolute top-3 left-3 font-bebas text-3xl text-primary leading-none">
-          {edition.year}
-        </span>
+    <div className="flex h-full flex-col gap-3 bg-white p-7">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-bebas text-6xl leading-none text-foreground">{edition.year}</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gold-ink">{edition.edition}</span>
       </div>
-      <div className="p-5">
-        {edition.status ? (
-          <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground">
-            {STATUS_LABEL[edition.status] ?? edition.status}
-          </span>
+      <p className="text-base leading-relaxed text-muted-foreground">{edition.desc}</p>
+      <p className="mt-auto flex flex-wrap gap-x-6 gap-y-2 pt-3">
+        <Link href={`/results?year=${edition.year}`} className={link}>Hall of Fame</Link>
+        {REPLAYS[edition.year]?.length ? (
+          <Link href={`/watch?year=${edition.year}`} className={link}>Watch it back</Link>
         ) : null}
-        <h3 className="font-bebas text-2xl text-foreground leading-tight mt-1">
-          {edition.theme}
-        </h3>
-      </div>
-    </Link>
+      </p>
+    </div>
   );
 }

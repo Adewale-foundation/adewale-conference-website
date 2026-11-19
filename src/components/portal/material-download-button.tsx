@@ -4,8 +4,8 @@ import { useState } from "react";
 import { createClient } from "@/supabase/client";
 
 // Logs a download to resource_downloads (for progress/analytics) and offers a
-// "Save offline" action that warms the service-worker cache with the stable
-// Sanity CDN URL so the file opens later with no signal.
+// "Save offline" action that warms the service-worker cache with the file's
+// URL so it opens later with no signal.
 export default function MaterialDownloadButton({
   resourceId,
   fileUrl,

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const whyCards = [
   {
     icon: "📍",
@@ -31,7 +33,8 @@ const whyCards = [
   },
 ];
 
-export default function WhyPartnerSection() {
+/** `limit` is the home page's teaser; /sponsors shows every reason. */
+export default function WhyPartnerSection({ limit }: { limit?: number } = {}) {
   return (
     <section id="why" className="bg-white py-14 md:py-16 px-6 md:px-12">
       <div className="max-w-7xl mx-auto">
@@ -48,7 +51,7 @@ export default function WhyPartnerSection() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10 mt-16">
-          {whyCards.map((card, idx) => (
+          {whyCards.slice(0, limit).map((card, idx) => (
             <div
               key={idx}
               className="border-t-4 border-[#E8A020] pt-7 space-y-4"
@@ -63,6 +66,15 @@ export default function WhyPartnerSection() {
             </div>
           ))}
         </div>
+
+        {limit ? (
+          <Link
+            href="/sponsors"
+            className="mt-12 inline-flex min-h-12 items-center bg-[#0A0F1E] px-6 text-xs font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-secondary"
+          >
+            See sponsorship packages
+          </Link>
+        ) : null}
       </div>
     </section>
   );

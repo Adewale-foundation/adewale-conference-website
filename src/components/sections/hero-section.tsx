@@ -3,7 +3,7 @@ import { Star } from "lucide-react";
 import InstallAppButton from "@/components/pwa/install-app-button";
 import CountUp from "@/components/ui/count-up";
 
-const stats = [
+export const stats = [
   { num: "5,000+", label: "Students Reached Directly" },
   { num: "₦25M+", label: "Scholarship Support Paid" },
   { num: "5", label: "Consecutive Editions" },
@@ -18,6 +18,8 @@ const tickerItems = [
   "Grand Finale: 19 November 2026, Abeokuta",
   "Open to All Secondary Schools in Ogun State"
 ];
+
+export const THEME_LINES = ["Building", "Tomorrow's", "Geniuses", "Today."];
 
 export default function HeroSection() {
   return (
@@ -35,7 +37,7 @@ export default function HeroSection() {
           </div>
 
           <h1 className="font-bebas text-5xl sm:text-6xl md:text-6xl lg:text-7xl leading-[0.95] text-white">
-            {["Building", "Tomorrow's", "Geniuses", "Today."].map((line, i) => (
+            {THEME_LINES.map((line, i) => (
               <span key={line} className={`hero-line ${i === 1 ? "text-primary" : ""} ${i === 2 ? "mt-4 md:mt-5" : ""}`}>
                 <span style={{ "--i": i + 1 } as React.CSSProperties}>{line}</span>
               </span>
@@ -52,7 +54,7 @@ export default function HeroSection() {
               className="rounded-none h-12 px-6 text-xs font-bold tracking-[0.2em] uppercase"
               asChild
             >
-              <a href="#partner">Become a Partner</a>
+              <a href="/sponsors">Become a Partner</a>
             </Button>
             <Button
               variant="outline"

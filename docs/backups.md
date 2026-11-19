@@ -66,8 +66,6 @@ pg_restore --clean --if-exists --no-owner --no-privileges \
 
 ## What's deliberately NOT in the dump
 
-- **Sanity content** (guides, news, results): export separately when needed —
-  `npx sanity dataset export production` (or rely on Sanity's hosted history).
 - **Airtable**: already a second copy of registrations; export CSVs ad hoc.
-- **Storage files**: none in Supabase Storage today (resources live on Sanity's
-  CDN). Revisit if that changes.
+- **Storage files**: none in Supabase Storage today (resources live on S3,
+  ADR 0006). Revisit if that changes.

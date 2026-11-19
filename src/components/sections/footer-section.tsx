@@ -1,3 +1,6 @@
+import SocialIcon from "@/components/ui/social-icon";
+import { SOCIAL_LINKS } from "@/lib/site";
+
 export default function FooterSection() {
   return (
     <footer className="bg-[#0A0F1E] text-[rgba(250,247,240,0.7)] py-12 md:py-16 px-6 md:px-12">
@@ -10,6 +13,21 @@ export default function FooterSection() {
             <p className="text-sm leading-relaxed text-[rgba(250,247,240,0.5)]">
               Ogun State's most ambitious student innovation platform. Building tomorrow's geniuses one edition at a time.
             </p>
+            <ul className="mt-6 flex gap-3">
+              {SOCIAL_LINKS.map((s) => (
+                <li key={s.name}>
+                  <a
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`ASC on ${s.name}`}
+                    className="flex size-11 items-center justify-center border border-[rgba(232,160,32,0.35)] text-[#F0EAD8] transition-colors hover:border-primary hover:text-primary"
+                  >
+                    <SocialIcon name={s.name} className="size-5" />
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div>
@@ -19,7 +37,7 @@ export default function FooterSection() {
             <ul className="space-y-3 text-sm">
               <li>
                 <a
-                  href="#about"
+                  href="/about"
                   className="hover:text-primary transition-colors duration-200"
                 >
                   About ASC
@@ -27,7 +45,7 @@ export default function FooterSection() {
               </li>
               <li>
                 <a
-                  href="#impact"
+                  href="/about#impact"
                   className="hover:text-primary transition-colors duration-200"
                 >
                   Our Impact
@@ -35,7 +53,7 @@ export default function FooterSection() {
               </li>
               <li>
                 <a
-                  href="#programme"
+                  href="/about#programme"
                   className="hover:text-primary transition-colors duration-200"
                 >
                   Programme
@@ -43,15 +61,7 @@ export default function FooterSection() {
               </li>
               <li>
                 <a
-                  href="#dates"
-                  className="hover:text-primary transition-colors duration-200"
-                >
-                  2026 Dates
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#founder"
+                  href="/about#founder"
                   className="hover:text-primary transition-colors duration-200"
                 >
                   The Founder
@@ -67,7 +77,7 @@ export default function FooterSection() {
             <ul className="space-y-3 text-sm">
               <li>
                 <a
-                  href="#register"
+                  href="/#register"
                   className="hover:text-primary transition-colors duration-200"
                 >
                   School Registration
@@ -75,7 +85,7 @@ export default function FooterSection() {
               </li>
               <li>
                 <a
-                  href="#partner"
+                  href="/sponsors"
                   className="hover:text-primary transition-colors duration-200"
                 >
                   Partner With Us
@@ -83,7 +93,7 @@ export default function FooterSection() {
               </li>
               <li>
                 <a
-                  href="#faq"
+                  href="/faq"
                   className="hover:text-primary transition-colors duration-200"
                 >
                   FAQs

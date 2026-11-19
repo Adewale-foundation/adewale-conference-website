@@ -37,12 +37,6 @@ self.addEventListener("fetch", (event) => {
   // Never touch auth / API — must hit the network live.
   if (url.pathname.startsWith("/api/") || url.pathname.includes("/portal/auth")) return;
 
-  // Sanity CDN study packs: cache-first (stable URLs — great for offline).
-  if (url.hostname === "cdn.sanity.io") {
-    event.respondWith(cacheFirst(req));
-    return;
-  }
-
   // Immutable static assets: cache-first.
   if (
     url.origin === self.location.origin &&
