@@ -6,6 +6,7 @@ import { ResultsSearch } from "@/features/results/results-search";
 import { FINAL_STAGE, latestRoster } from "@/lib/finale-podium";
 import { loadFinalResult, type PodiumSchool } from "@/lib/finale-podium-data";
 import { publicQualificationLabel } from "@/lib/paper-exam";
+import { replayHref } from "@/lib/replays";
 import { pageMetadata } from "@/lib/seo";
 import { createAdminClient } from "@/supabase/admin";
 import { isSupabaseConfigured } from "@/supabase/env";
@@ -448,6 +449,7 @@ export default async function ResultsPage({ searchParams }: Props) {
                           Grand Finale
                         </span>
                         <span className="h-px flex-1 bg-[rgba(10,15,30,0.12)]" />
+                        <WatchLink href={replayHref(edition.year, FINAL_STAGE)}>Watch the final</WatchLink>
                       </h2>
                       <Celebration className="mx-auto flex max-w-2xl items-end gap-2 sm:gap-4">
                         {[2, 1].map((place) => {
@@ -482,6 +484,7 @@ export default async function ResultsPage({ searchParams }: Props) {
                               {stage}
                             </span>
                             <span className="h-px flex-1 bg-[rgba(10,15,30,0.12)]" />
+                            <WatchLink href={replayHref(edition.year, stage)}>Watch this stage</WatchLink>
                           </h2>
                           <p className="mb-6 text-sm text-muted-foreground">
                             {inStage.length} school{inStage.length === 1 ? "" : "s"} through
@@ -541,6 +544,21 @@ export default async function ResultsPage({ searchParams }: Props) {
         </div>
       </section>
     </>
+  );
+}
+
+function WatchLink({ href, children }: { href: string | null; children: React.ReactNode }) {
+  if (!href) return null;
+  return (
+    <Link
+      href={href}
+      className="inline-flex min-h-9 shrink-0 items-center gap-2 bg-[#0A0F1E] px-3 text-xs font-bold uppercase tracking-[0.14em] text-white hover:bg-secondary"
+    >
+      <svg viewBox="0 0 14 14" className="size-2.5" aria-hidden="true">
+        <path d="M3 1l10 6-10 6z" fill="#E8A020" />
+      </svg>
+      {children}
+    </Link>
   );
 }
 

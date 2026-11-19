@@ -1,7 +1,3 @@
-import { Button } from "../../components/ui/button";
-import RegisterSchoolButton from "./register-school-button";
-import WaitlistButton from "./waitlist-button";
-
 const eligibilityItems = [
   "Open to all public and private secondary schools in Ogun State",
   "STEM Contest: SS1 and SS2 students only (up to 3 students per school team)",
@@ -35,96 +31,37 @@ const steps = [
   },
 ];
 
-export default function RegistrationSection({
-  registrationOpen = true,
-}: {
-  registrationOpen?: boolean;
-}) {
+/** Who can enter and what happens next. The button that opens the form belongs to the page. */
+export default function RegistrationGuide() {
   return (
-    <section id="register" className="bg-[#0A0F1E] py-14 md:py-16 px-6 md:px-12">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 md:gap-16">
-          <div>
-            <div className="mb-8 md:mb-8">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="block w-6 h-px bg-[#E8A020]" />
-                <span className="text-xs font-bold tracking-[0.3em] uppercase text-primary">
-                  For Schools
-                </span>
+    <section className="bg-[#0A0F1E] px-6 pb-16 md:px-12 md:pb-24">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 md:gap-16 lg:grid-cols-2">
+        <div className="bg-[#1C2540] p-8 md:p-10">
+          <h2 className="mb-6 font-bebas text-2xl text-white md:text-3xl">Eligibility &amp; Requirements</h2>
+          <ul className="space-y-4">
+            {eligibilityItems.map((item) => (
+              <li key={item} className="flex gap-4 text-sm text-[rgba(250,247,240,0.65)] md:text-base">
+                <span className="shrink-0 font-bold text-primary">✦</span>
+                <span>{item.trim()}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h2 className="mb-10 font-bebas text-2xl text-white md:text-3xl">How to Register</h2>
+          <div className="space-y-6">
+            {steps.map((step) => (
+              <div key={step.num} className="flex gap-6">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#E8A020]">
+                  <span className="font-bebas text-lg text-foreground">{step.num}</span>
+                </div>
+                <div>
+                  <h3 className="mb-2 text-lg font-medium text-white md:text-xl">{step.title}</h3>
+                  <p className="text-sm text-[rgba(250,247,240,0.65)] md:text-base">{step.desc}</p>
+                </div>
               </div>
-              <h2 className="font-bebas text-3xl md:text-4xl lg:text-5xl leading-[0.95] text-white">
-                Is Your School <br /> Ready?
-              </h2>
-            </div>
-
-            <p className="text-base md:text-lg text-[rgba(250,247,240,0.65)] leading-relaxed mb-12">
-              Registration for ASC 2026 opens May 1st. Every secondary school in Ogun State is eligible. The competition is free to enter. The opportunity is unlimited.
-            </p>
-
-            <div className="bg-[#1C2540] p-8 md:p-10 mb-12">
-              <h3 className="text-lg md:text-xl font-medium text-white mb-6">
-                Eligibility & Requirements
-              </h3>
-              <ul className="space-y-4">
-                {eligibilityItems.map((item, idx) => (
-                  <li key={idx} className="flex gap-4 text-sm md:text-base text-[rgba(250,247,240,0.65)]">
-                    <span className="text-primary font-bold flex-shrink-0">✦</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-2xl md:text-3xl font-bebas text-white mb-10">
-              How to Register
-            </h3>
-
-            <div className="space-y-6 mb-12">
-              {steps.map((step) => (
-                <div key={step.num} className="flex gap-6">
-                  <div className="w-12 h-12 rounded-full bg-[#E8A020] flex items-center justify-center flex-shrink-0">
-                    <span className="font-bebas text-lg text-foreground">{step.num}</span>
-                  </div>
-                  <div>
-                    <h4 className="text-lg md:text-xl font-medium text-white mb-2">
-                      {step.title}
-                    </h4>
-                    <p className="text-sm md:text-base text-[rgba(250,247,240,0.65)]">
-                      {step.desc}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-4">
-              {registrationOpen ? (
-                <RegisterSchoolButton />
-              ) : (
-                <div className="border border-[#E8A020] bg-[#1C2540] p-6">
-                  <p className="text-xs font-bold tracking-[0.3em] uppercase text-primary mb-2">
-                    Registration closed
-                  </p>
-                  <p className="text-sm md:text-base text-[rgba(250,247,240,0.75)]">
-                    Registration for this edition has closed. Join the waitlist and
-                    we&apos;ll email you the moment the next edition opens. Already
-                    registered? Your school&apos;s portal stays open:{" "}
-                    <a href="/portal" className="text-primary underline underline-offset-2">
-                      sign in here
-                    </a>
-                    .
-                  </p>
-                  <WaitlistButton />
-                </div>
-              )}
-              <Button variant="secondary" className="py-6" asChild>
-                <a href="mailto:adewaleconference@gmail.com?subject=ASC%202026%20Registration%20Question">
-                  Have a question? Email Us
-                </a>
-              </Button>
-            </div>
+            ))}
           </div>
         </div>
       </div>

@@ -1,71 +1,70 @@
-import { notFound } from "next/navigation";
 import Image from "next/image";
-import { PortableText } from "next-sanity";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import PageHeader from "@/components/layout/page-header";
-import { pageMetadata } from "@/lib/seo";
 import { formatDate } from "@/lib/format";
-import { client } from "@/sanity/lib/client";
-import { sanityFetch } from "@/sanity/lib/live";
-import { newsBySlugQuery, newsSlugsQuery } from "@/sanity/lib/queries";
-import { urlForImage } from "@/sanity/lib/image";
-import { projectId } from "@/sanity/env";
-import type { NewsPost } from "@/sanity/types";
+import { pageMetadata } from "@/lib/seo";
+import { NEWS_POSTS, findNewsPost } from "@/lib/static-news";
 
 type Params = { params: Promise<{ slug: string }> };
 
-export async function generateStaticParams() {
-  if (!projectId) return [];
-  const slugs = await client.fetch<string[]>(newsSlugsQuery);
-  return (slugs ?? []).map((slug) => ({ slug }));
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return NEWS_POSTS.filter((post) => post.body).map((post) => ({ slug: post.slug }));
 }
 
 export async function generateMetadata({ params }: Params) {
-  const { slug } = await params;
-  const { data } = await sanityFetch({ query: newsBySlugQuery, params: { slug } });
-  const post = data as NewsPost | null;
-  if (!post) return pageMetadata("News", "Adewale Students Conference news");
-  return pageMetadata(post.title, post.excerpt ?? "Adewale Students Conference news");
+  const post = findNewsPost((await params).slug);
+  return post ? pageMetadata(post.title, post.excerpt) : pageMetadata("News", "Adewale Students Conference news");
 }
 
-export default async function NewsArticlePage({ params }: Params) {
-  const { slug } = await params;
-  const { data } = await sanityFetch({ query: newsBySlugQuery, params: { slug } });
-  const post = data as NewsPost | null;
-  if (!post) notFound();
+const link = "font-bold underline underline-offset-4 hover:text-gold-ink";
 
-  const meta = [formatDate(post.publishedAt), post.author?.name].filter(Boolean).join(" · ");
+export default async function NewsArticlePage({ params }: Params) {
+  const post = findNewsPost((await params).slug);
+  if (!post?.body) notFound();
 
   return (
     <>
-      <PageHeader kicker={meta || "News"} title={post.title} />
+      <PageHeader kicker={formatDate(post.publishedAt) || "News"} title={post.title} subtitle={post.excerpt} />
       <section className="px-6 md:px-12 py-12 md:py-16">
         <div className="max-w-3xl mx-auto">
-          {post.coverImage ? (
-            <div className="relative aspect-[16/9] bg-[#0A0F1E] mb-10">
-              <Image
-                src={urlForImage(post.coverImage).width(1280).height(720).url()}
-                alt={post.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 896px) 100vw, 896px"
-                priority
-              />
+          {post.image ? (
+            <div className="relative mb-10 aspect-video bg-[#0A0F1E]">
+              <Image src={post.image} alt="" fill priority className="object-cover" sizes="(max-width: 896px) 100vw, 896px" />
             </div>
           ) : null}
 
-          {post.body ? (
-            <div className="prose-news serif-display text-lg text-foreground leading-relaxed space-y-4">
-              <PortableText value={post.body} />
-            </div>
-          ) : null}
+          <div className="serif-display space-y-5 text-lg leading-relaxed text-foreground">
+            {post.body.map((para) => (
+              <p key={para}>{para}</p>
+            ))}
+          </div>
 
-          {post.tags && post.tags.length > 0 ? (
-            <ul className="flex flex-wrap gap-2 mt-10 pt-8 border-t border-[rgba(10,15,30,0.12)] list-none">
+          <Link href="/watch" className="group mt-12 flex items-center gap-5 bg-[#0A0F1E] p-5 md:p-6">
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary transition-transform group-hover:scale-110">
+              <svg viewBox="0 0 14 14" className="ml-0.5 size-5" aria-hidden="true">
+                <path d="M3 1l10 6-10 6z" fill="#0A0F1E" />
+              </svg>
+            </span>
+            <span>
+              <span className="block text-[11px] font-bold uppercase tracking-[0.25em] text-primary">Watch it back</span>
+              <span className="block font-bebas text-2xl leading-tight text-white md:text-3xl">
+                The Grand Final and every stage before it
+              </span>
+            </span>
+          </Link>
+
+          <p className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            <Link href="/news" className={link}>Back to News</Link>
+            <Link href="/results" className={link}>Hall of Fame</Link>
+          </p>
+
+          {post.tags?.length ? (
+            <ul className="mt-10 flex list-none flex-wrap gap-2 border-t border-[rgba(10,15,30,0.12)] pt-8">
               {post.tags.map((tag) => (
-                <li
-                  key={tag}
-                  className="text-[11px] font-bold tracking-[0.14em] uppercase text-muted-foreground border border-[rgba(10,15,30,0.2)] px-3 py-1"
-                >
+                <li key={tag} className="border border-[rgba(10,15,30,0.2)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                   {tag}
                 </li>
               ))}

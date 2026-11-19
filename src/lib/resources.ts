@@ -1,7 +1,6 @@
 import type { ResourceAccess } from "./resource-access";
 
-// Resource types mirror the old Sanity "Resource" document so the portal library
-// looks and filters the same. `external-link` and `video` may carry a URL
+// `external-link` and `video` may carry a URL
 // instead of an uploaded file.
 export const RESOURCE_TYPES = [
   { value: "guidelines", label: "Competition guidelines" },

@@ -3,6 +3,13 @@ export const SITE_NAME = "Adewale Students Conference";
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.adewaleconference.org";
 
+export const SOCIAL_LINKS = [
+  { name: "YouTube", handle: "@adewaleconference", href: "https://www.youtube.com/@adewaleconference" },
+  { name: "Instagram", handle: "@adewaleconference", href: "https://www.instagram.com/adewaleconference/" },
+] as const;
+
+export type SocialName = (typeof SOCIAL_LINKS)[number]["name"];
+
 // Canonical list of public platform pages. Drives the sitemap now, and will
 // drive the primary navigation once each page carries real content.
 export const PLATFORM_PAGES = [
@@ -11,6 +18,7 @@ export const PLATFORM_PAGES = [
   { path: "/editions", label: "Editions" },
   { path: "/results", label: "Hall of Fame" },
   { path: "/resources", label: "Resources" },
+  { path: "/watch", label: "Watch" },
   { path: "/news", label: "News" },
   { path: "/gallery", label: "Gallery" },
   { path: "/schools", label: "Schools" },
@@ -51,6 +59,7 @@ export const MAIN_NAV: readonly NavEntry[] = [
   {
     label: "Media",
     items: [
+      { label: "Watch", href: "/watch" },
       { label: "News", href: "/news" },
       { label: "Gallery", href: "/gallery" },
     ],

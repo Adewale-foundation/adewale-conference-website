@@ -1,0 +1,16 @@
+export const GALLERY_PHOTOS = [
+  { src: "/assets/gallery1.jpg", alt: "Scholarship winner with award certificate" },
+  { src: "/assets/gallery2.jpg", alt: "Grand prize cheque presentation" },
+  { src: "/assets/gallery3.jpg", alt: "Students at the registration desk" },
+  { src: "/assets/gallery4.jpg", alt: "Keynote session on stage" },
+  { src: "/assets/gallery5.jpg", alt: "Adewale Students Conference venue" },
+  { src: "/assets/gallery6.jpg", alt: "Audience at the Grand Finale" },
+  { src: "/assets/gallery7.jpg", alt: "Students celebrating at the Grand Finale" },
+  { src: "/assets/gallery8.jpg", alt: "Innovation pitch in progress" },
+  { src: "/assets/gallery9.JPG", alt: "Award ceremony moment" },
+  { src: "/assets/gallery10.JPG", alt: "Group photo with finalists" },
+  { src: "/assets/gallery11.JPG", alt: "Students engaged in the STEM contest" },
+  { src: "/assets/gallery12.JPG", alt: "Teacher and students at registration" },
+  { src: "/assets/gallery13.JPG", alt: "Adewale Students Conference highlights" },
+  { src: "/assets/gallery14.jpg", alt: "Community gathered at the Grand Finale" },
+];

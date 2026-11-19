@@ -1,5 +1,6 @@
 import PageHeader from "@/components/layout/page-header";
 import AboutSection from "@/components/sections/about-section";
+import ProgrammeSection from "@/components/sections/programme-section";
 import ImpactSection from "@/components/sections/impact-section";
 import FounderSection from "@/components/sections/founder-section";
 import { pageMetadata } from "@/lib/seo";
@@ -18,6 +19,7 @@ export default function AboutPage() {
         subtitle="Ogun State's most ambitious student STEM platform — building tomorrow's geniuses today."
       />
       <AboutSection />
+      <ProgrammeSection />
       <ImpactSection />
       <FounderSection />
     </>

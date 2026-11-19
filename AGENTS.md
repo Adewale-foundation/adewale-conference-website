@@ -2,7 +2,7 @@
 
 The ASC portal: a public site plus a portal for schools, students and admins.
 Next.js App Router with React Server Components, Supabase/Postgres with RLS,
-Server Actions, Sanity for a few public pages.
+Server Actions. News, past editions and the gallery are content in `src/lib/`.
 
 **Read [docs/review-checklist.md](docs/review-checklist.md) before changing
 anything and again before declaring done.** It is the accumulated list of ways

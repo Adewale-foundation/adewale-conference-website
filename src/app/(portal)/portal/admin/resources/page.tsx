@@ -31,7 +31,7 @@ import { resourceStorage } from "@/lib/storage";
 import { createResource, deleteResource, setResourcePublished } from "./actions";
 import { Select } from "@/components/ui/select";
 
-export const metadata = pageMetadata("Resources", "Upload and manage the study library — no Sanity needed.");
+export const metadata = pageMetadata("Resources", "Upload and manage the study library.");
 export const dynamic = "force-dynamic";
 
 const inputCls =

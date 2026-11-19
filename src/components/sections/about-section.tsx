@@ -1,6 +1,6 @@
 import { Trophy, Lightbulb, Mic, PartyPopper } from "lucide-react";
 
-const pillars = [
+export const pillars = [
   {
     icon: Trophy,
     title: "STEM Contest",

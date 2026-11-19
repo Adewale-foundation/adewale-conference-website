@@ -63,6 +63,9 @@
   from { transform: translateY(110%) rotate(4deg); }
   to { transform: none; }
 }
+@keyframes hero-fade {
+  from { opacity: 0; }
+}
 @keyframes hero-zoom {
   from { transform: scale(1.18); }
   to { transform: scale(1); }
@@ -84,6 +87,7 @@
   animation: hero-line 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--i, 0) * 130ms + 200ms) both;
 }
 .hero-zoom { animation: hero-zoom 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) both, hero-drift 18s ease-in-out 2.2s infinite alternate; }
+.hero-backdrop { animation: hero-fade 1.2s ease both; }
 .hero-pop { animation: hero-pop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) calc(var(--i, 0) * 120ms + 900ms) both; }
 
 .reveal {
@@ -94,7 +98,7 @@
 .reveal.reveal-in { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-in, .hero-line > span, .hero-zoom, .hero-pop { animation: none; }
+  .hero-in, .hero-line > span, .hero-zoom, .hero-pop, .hero-backdrop { animation: none; }
 }
 
 /* Champions podium. Everything is scoped to .celebrate (components/finale/celebration.tsx) and

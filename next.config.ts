@@ -15,12 +15,6 @@ const nextConfig: NextConfig = {
   // Allow HMR / dev resources when testing from a phone on the LAN (e.g. the PWA).
   // Dev-only; add your machine's current LAN IP if it changes.
   allowedDevOrigins: ["192.168.100.14", "192.168.100.60"],
-  // Sanity Studio packages must load as real Node modules, not be bundled by
-  // Turbopack — bundling them breaks React context at build time.
-  serverExternalPackages: ["sanity", "@sanity/vision", "styled-components"],
-  images: {
-    remotePatterns: [{ protocol: "https", hostname: "cdn.sanity.io" }],
-  },
   // Ensure the email HTML templates are traced into the serverless route
   // handlers that read them at runtime.
   outputFileTracingIncludes: {
@@ -39,10 +33,14 @@ const nextConfig: NextConfig = {
     // The fan vote's share images read their font files at runtime.
     "/finale/**": ["./assets/fonts/**/*"],
   },
-  // The Fellows page was briefly published as /volunteer before the programme was
-  // branded; keep any link already shared working.
   async redirects() {
-    return [{ source: "/volunteer", destination: "/fellows", permanent: true }];
+    return [
+      // The Fellows page was briefly published as /volunteer before the programme was
+      // branded; keep any link already shared working.
+      { source: "/volunteer", destination: "/fellows", permanent: true },
+      // Edition pages were folded into the Hall of Fame.
+      { source: "/editions/:year(\\d{4})", destination: "/results?year=:year", permanent: false },
+    ];
   },
   // Let the service worker control the whole origin, and keep it uncached so a
   // new release's sw.js is picked up promptly.

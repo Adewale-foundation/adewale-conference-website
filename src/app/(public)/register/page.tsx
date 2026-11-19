@@ -1,4 +1,5 @@
 import PageHeader from "@/components/layout/page-header";
+import RegistrationGuide from "@/components/sections/registration-section";
 import RegisterSchoolButton from "@/components/sections/register-school-button";
 import WaitlistButton from "@/components/sections/waitlist-button";
 import { getRegistrationOpen } from "@/lib/edition-state";
@@ -125,7 +126,7 @@ export default async function RegisterPage({
             : "Every secondary school in Ogun State is eligible, and entry is free."
         }
       />
-      <section className="bg-[#0A0F1E] px-6 md:px-12 pb-16 md:pb-24">
+      <section className="bg-[#0A0F1E] px-6 md:px-12 pb-12 md:pb-16">
         <div className="max-w-3xl mx-auto">
           {invited ? (
             <RegisterSchoolButton
@@ -147,6 +148,7 @@ export default async function RegisterPage({
           )}
         </div>
       </section>
+      <RegistrationGuide />
     </>
   );
 }
