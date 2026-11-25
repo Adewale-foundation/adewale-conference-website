@@ -14,6 +14,10 @@ export interface Chapter {
   stage?: string;
   /** False when no frame of this moment was saved. */
   ownThumb?: boolean;
+  /** Set when this moment is a different video from the rest of its group: press clips. */
+  videoId?: string;
+  /** The same piece published somewhere the player cannot embed. */
+  alsoOn?: { label: string; href: string };
 }
 
 export interface Recording {
@@ -55,9 +59,18 @@ export const REPLAYS: Record<number, Recording[]> = {
     {
       videoId: "JKWkXH4cR5o",
       title: "In the News",
-      day: "Ogun State Television · 8PM News · 19 November",
+      day: "Television coverage of the Grand Finale",
       chapters: [
-        { slug: "ogtv-news", title: "The Grand Finale on Ogun State Television", note: "The report from the evening bulletin.", start: at(0, 7, 35), end: at(0, 11, 5), ownThumb: false },
+        { slug: "ogtv-news", title: "The Grand Finale on Ogun State Television", note: "The report from the 8PM News.", start: at(0, 7, 35), end: at(0, 11, 5), ownThumb: false },
+        {
+          slug: "nta-news",
+          videoId: "X1lCthYrNus",
+          title: "The Grand Finale on NTA Abeokuta",
+          note: "The report from NTA Abeokuta, Channel 12.",
+          start: 0,
+          ownThumb: false,
+          alsoOn: { label: "Watch on Facebook", href: "https://www.facebook.com/share/v/1534QLEambi/" },
+        },
       ],
     },
     {
@@ -88,9 +101,11 @@ export const REPLAYS: Record<number, Recording[]> = {
   ],
 };
 
+export const videoOf = (recording: Recording, chapter: Chapter) => chapter.videoId ?? recording.videoId;
+
 /** A frame from the moment itself, saved under public/assets/replays; else the recording's poster. */
 export const chapterThumb = (recording: Recording, chapter: Chapter) =>
-  chapter.ownThumb === false ? replayPoster(recording.videoId) : `/assets/replays/${chapter.slug}.jpg`;
+  chapter.ownThumb === false ? replayPoster(videoOf(recording, chapter)) : `/assets/replays/${chapter.slug}.jpg`;
 
 export interface Film {
   videoId: string;

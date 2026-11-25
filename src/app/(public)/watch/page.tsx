@@ -11,6 +11,7 @@ import {
   replayPoster,
   replayWatchUrl,
   replayYears,
+  videoOf,
 } from "@/lib/replays";
 import { pageMetadata } from "@/lib/seo";
 
@@ -38,7 +39,7 @@ export default async function WatchPage({ searchParams }: { searchParams: Promis
               {/* On a phone the video stays pinned under the navbar while the moments scroll beneath it. */}
               <div className="sticky top-18 z-10 -mx-6 bg-[#0A0F1E] max-lg:shadow-[0_12px_24px_-12px_rgba(0,0,0,0.8)] sm:mx-0 lg:static">
                 <ReplayPlayer
-                  videoId={playing.recording.videoId}
+                  videoId={videoOf(playing.recording, playing.chapter)}
                   start={playing.chapter.start}
                   end={playing.chapter.end}
                   title={playing.chapter.title}
@@ -53,13 +54,23 @@ export default async function WatchPage({ searchParams }: { searchParams: Promis
                 </p>
                 <p className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm font-bold">
                   <a
-                    href={replayWatchUrl(playing.recording.videoId, playing.chapter.start)}
+                    href={replayWatchUrl(videoOf(playing.recording, playing.chapter), playing.chapter.start)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[#F0EAD8] underline underline-offset-4 hover:text-primary"
                   >
                     Slow connection? Watch on YouTube
                   </a>
+                  {playing.chapter.alsoOn ? (
+                    <a
+                      href={playing.chapter.alsoOn.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#F0EAD8] underline underline-offset-4 hover:text-primary"
+                    >
+                      {playing.chapter.alsoOn.label}
+                    </a>
+                  ) : null}
                   <Link href={`/results?year=${year}`} className="text-primary underline underline-offset-4">
                     Hall of Fame
                   </Link>
