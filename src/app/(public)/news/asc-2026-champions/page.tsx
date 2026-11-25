@@ -5,7 +5,7 @@ import ReplayPlayer from "@/features/watch/replay-player";
 import { finaleDb } from "@/lib/finale-data";
 import { loadFinalResult } from "@/lib/finale-podium-data";
 import { formatDate } from "@/lib/format";
-import { REPLAYS, findChapter } from "@/lib/replays";
+import { REPLAYS, findChapter, videoOf } from "@/lib/replays";
 import { pageMetadata } from "@/lib/seo";
 import { findNewsPost } from "@/lib/static-news";
 
@@ -23,7 +23,7 @@ export default async function ChampionsStoryPage() {
   if (final?.error) console.error("news: could not read the final placing", final.error);
   const champion = final?.result?.champion.school;
   const runnerUp = final?.result?.runnerUp?.school;
-  const report = findChapter(REPLAYS[YEAR] ?? [], "ogtv-news");
+  const reports = ["ogtv-news", "nta-news"].flatMap((slug) => findChapter(REPLAYS[YEAR] ?? [], slug) ?? []);
 
   return (
     <>
@@ -50,23 +50,26 @@ export default async function ChampionsStoryPage() {
             </p>
             <p>
               The day also carried the Innovation Pitch finals, a keynote, a panel session and the prize presentations. Ogun
-              State Television covered the finale on its 8PM News that evening.
+              State Television and NTA Abeokuta both carried the finale in their news bulletins.
             </p>
           </div>
 
-          {report ? (
-            <figure className="my-10">
-              <ReplayPlayer
-                videoId={report.recording.videoId}
-                start={report.chapter.start}
-                end={report.chapter.end}
-                title={report.chapter.title}
-              />
+          {reports.map(({ recording, chapter }) => (
+            <figure key={chapter.slug} className="my-10">
+              <ReplayPlayer videoId={videoOf(recording, chapter)} start={chapter.start} end={chapter.end} title={chapter.title} />
               <figcaption className="mt-3 text-sm text-muted-foreground">
-                The report on Ogun State Television&apos;s 8PM News, 19 November.
+                {chapter.note}
+                {chapter.alsoOn ? (
+                  <>
+                    {" "}
+                    <a href={chapter.alsoOn.href} target="_blank" rel="noopener noreferrer" className={link}>
+                      {chapter.alsoOn.label}
+                    </a>
+                  </>
+                ) : null}
               </figcaption>
             </figure>
-          ) : null}
+          ))}
 
           <div className="serif-display space-y-5 text-lg leading-relaxed text-foreground">
             <p>

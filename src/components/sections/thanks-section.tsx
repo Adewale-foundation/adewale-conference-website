@@ -41,7 +41,10 @@ export default function ThanksSection() {
             Read the story of the day in News
           </Link>
           <Link href="/watch?play=ogtv-news" className="text-foreground underline underline-offset-4 hover:text-gold-ink">
-            As seen on Ogun State Television&apos;s 8PM News
+            As seen on Ogun State Television
+          </Link>
+          <Link href="/watch?play=nta-news" className="text-foreground underline underline-offset-4 hover:text-gold-ink">
+            As seen on NTA Abeokuta
           </Link>
         </p>
       </div>
